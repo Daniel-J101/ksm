@@ -12,11 +12,21 @@ exactly its byte-identical page sharing. See README.md.
 Cohorts (what plays the role of "sibling sandboxes"):
   identical : the SAME task x N        -> upper bound; validates the pipeline
   siblings  : N DIFFERENT tasks, one repo -> realistic; shared template/libs
-              but divergent private pages, the regime where KSM underperforms
-              (and where AgentZip's delta/dictionary codecs would win).
+              but divergent private pages, the regime where KSM underperforms.
 
-KSM's merge counters (/sys/kernel/mm/ksm/pages_sharing, pages_shared) are
-SYSTEM-WIDE, so run this on an otherwise idle node.
+DIAGNOSTICS: the summary reports the full KSM counter breakdown so a near-zero
+result can be explained. KSM tracks mergeable pages as, roughly,
+    candidate ~= pages_shared + pages_sharing + pages_unshared + pages_volatile
+  - pages_sharing  : redundant copies KSM reclaimed  (the saving)
+  - pages_shared   : unique pages kept as merge targets
+  - pages_unshared : scanned but found UNIQUE -> content isn't byte-identical
+  - pages_volatile : changing too fast to merge
+If `candidate` ~ the cohort's anon page count, KSM scanned the memory and it
+simply wasn't identical (expected for pointer-heavy heaps / ASLR, and the whole
+reason the paper moves beyond KSM). If `candidate` ~ 0, the memory was never
+scanned -> plumbing (prctl/ASLR); try --disable-aslr and check docker logs.
+
+KSM's counters are SYSTEM-WIDE, so run this on an otherwise idle node.
 """
 
 import argparse
@@ -24,12 +34,12 @@ import csv
 import datetime
 import json
 import subprocess
-import sys
 import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 KSM = Path("/sys/kernel/mm/ksm")
+ASLR = Path("/proc/sys/kernel/randomize_va_space")
 PAGE = 4096
 
 
@@ -42,11 +52,12 @@ def sh(args, **kw):
 
 
 class Ksm:
-    """Reads/writes /sys/kernel/mm/ksm, restoring original values at exit.
-    Same contract as numa_ksm_bench/run_bench.py."""
+    """Reads/writes /sys/kernel/mm/ksm, restoring original values at exit."""
 
     KNOBS = ["merge_across_nodes", "smart_scan", "advisor_mode", "pages_to_scan",
              "sleep_millisecs", "use_zero_pages", "run"]
+    COUNTERS = ["pages_shared", "pages_sharing", "pages_unshared", "pages_volatile",
+                "full_scans"]
 
     def __init__(self):
         self.saved = {k: self.read(k) for k in self.KNOBS if self.has(k)}
@@ -65,6 +76,9 @@ class Ksm:
 
     def stat(self, knob):
         return int(self.read(knob))
+
+    def counters(self):
+        return {k: self.stat(k) for k in self.COUNTERS if self.has(k)}
 
     def prepare(self, pages_to_scan, sleep_ms):
         self.write("run", 2)  # unmerge everything -> clean slate (system-wide!)
@@ -93,12 +107,51 @@ class Ksm:
                     log(f"warning: could not restore ksm/{knob}={self.saved[knob]}: {e}")
 
 
+class Aslr:
+    """Optionally disable ASLR for the run (global knob; affects new execs,
+    including in containers). Many more heap/stack pages become byte-identical
+    across identical processes with ASLR off -- useful to separate 'not
+    identical because of ASLR' from 'not identical at all'."""
+
+    def __init__(self, disable):
+        self.disable = disable and ASLR.exists()
+        self.saved = ASLR.read_text().strip() if self.disable else None
+
+    def apply(self):
+        if self.disable:
+            ASLR.write_text("0\n")
+            log("ASLR disabled for this run (randomize_va_space=0)")
+
+    def restore(self):
+        if self.disable and self.saved is not None:
+            try:
+                ASLR.write_text(self.saved + "\n")
+                log(f"ASLR restored (randomize_va_space={self.saved})")
+            except OSError:
+                pass
+
+
+def container_host_pid(name):
+    r = sh(["docker", "inspect", "-f", "{{.State.Pid}}", name])
+    try:
+        return int(r.stdout.strip())
+    except ValueError:
+        return -1
+
+
+def proc_merging_pages(hostpid):
+    """Per-process pages KSM merged (Linux 5.19+). -1 if unavailable."""
+    p = Path(f"/proc/{hostpid}/ksm_merging_pages")
+    try:
+        return int(p.read_text().strip())
+    except (OSError, ValueError):
+        return -1
+
+
 def container_anon_kb(name):
-    """Anonymous RSS of a running container, in KiB, from its cgroup if we can
-    reach it, else from `docker stats`. Anon ~= what KSM scans."""
-    # cgroup v2 memory.stat 'anon' is the cleanest signal.
-    r = sh(["docker", "inspect", "-f", "{{.Id}}", name])
-    cid = r.stdout.strip()
+    """Anonymous RSS of a running container, in KiB (cgroup v2 memory.stat
+    'anon', else `docker stats`). Anon ~= what KSM scans."""
+    cid = sh(["docker", "inspect", "-f", "{{.Id}}", name]).stdout.strip()
     for base in (f"/sys/fs/cgroup/system.slice/docker-{cid}.scope/memory.stat",
                  f"/sys/fs/cgroup/docker/{cid}/memory.stat"):
         p = Path(base)
@@ -106,7 +159,6 @@ def container_anon_kb(name):
             for line in p.read_text().splitlines():
                 if line.startswith("anon "):
                     return int(line.split()[1]) // 1024
-    # Fallback: docker stats MEM USAGE (RSS-ish), parse "123.4MiB / ...".
     r = sh(["docker", "stats", "--no-stream", "--format", "{{.MemUsage}}", name])
     try:
         used = r.stdout.split("/")[0].strip()
@@ -119,12 +171,10 @@ def container_anon_kb(name):
 
 
 def launch_cohort(tasks, args, scratch):
-    """docker run each sandbox detached; return list of container names."""
     names = []
     for i, t in enumerate(tasks):
         name = f"az_{args.run_id}_{i}"
         sh(["docker", "rm", "-f", name])
-        ready = f"/azout/ready_{i}"
         cmd = [
             "docker", "run", "-d", "--name", name,
             "--memory-swappiness=0",
@@ -135,7 +185,7 @@ def launch_cohort(tasks, args, scratch):
             "--pkg", t.get("pkg", ""),
             "--gt-patch", (f"/azout/{t['gt_patch_name']}" if t.get("gt_patch_name") else ""),
             "--test-cmd", args.test_cmd,
-            "--ready-file", ready,
+            "--ready-file", f"/azout/ready_{i}",
             "--hold-secs", str(args.hold_secs),
         ]
         r = sh(cmd)
@@ -150,6 +200,7 @@ def launch_cohort(tasks, args, scratch):
 def wait_ready(n, scratch, timeout):
     log(f"waiting for {n} sandboxes to reach steady memory (timeout {timeout}s)...")
     t0 = time.time()
+    ready = 0
     while time.time() - t0 < timeout:
         ready = sum(1 for i in range(n) if (Path(scratch) / f"ready_{i}").exists())
         if ready == n:
@@ -161,7 +212,6 @@ def wait_ready(n, scratch, timeout):
 
 
 def wait_for_merge(ksm, settle_secs, max_secs):
-    """Run ksmd until pages_sharing stops growing (plateau) or max_secs."""
     ksm.write("run", 1)
     log("ksmd scanning; polling pages_sharing...")
     t0 = time.time()
@@ -171,31 +221,52 @@ def wait_for_merge(ksm, settle_secs, max_secs):
         if sharing != last:
             last = sharing
             stable_since = time.time()
-            log(f"  pages_sharing={sharing}  (+{sharing*PAGE/2**20:.0f} MiB saved)  "
-                f"full_scans={ksm.stat('full_scans')}")
+            log(f"  pages_sharing={sharing} (+{sharing*PAGE/2**20:.0f} MiB)  "
+                f"unshared={ksm.stat('pages_unshared')}  full_scans={ksm.stat('full_scans')}")
         elif time.time() - stable_since >= settle_secs:
             log(f"pages_sharing plateaued at {sharing}")
             break
         time.sleep(settle_secs / 3)
-    ksm.write("run", 0)  # stop scanning; merged pages stay merged
+    ksm.write("run", 0)
     return time.time() - t0
+
+
+def diagnose(c, anon_pages):
+    """Human-readable read of the counter breakdown."""
+    candidate = (c.get("pages_shared", 0) + c.get("pages_sharing", 0)
+                 + c.get("pages_unshared", 0) + c.get("pages_volatile", 0))
+    if anon_pages > 0 and candidate < 0.05 * anon_pages:
+        return (f"candidate pages scanned ({candidate}) << cohort anon pages "
+                f"(~{anon_pages}): KSM barely SAW the memory -> likely plumbing "
+                f"(PR_SET_MEMORY_MERGE not applied, or memory in exec'd children). "
+                f"Check docker logs for the prctl line; try --disable-aslr.")
+    if candidate > 0 and c.get("pages_sharing", 0) < 0.05 * candidate:
+        return (f"KSM scanned ~{candidate} candidate pages but merged only "
+                f"{c.get('pages_sharing',0)} ({c.get('pages_unshared',0)} were unique): "
+                f"the anon pages are NOT byte-identical. Expected for pointer-heavy "
+                f"heaps/ASLR; this is exactly why the paper moves past KSM to "
+                f"approximate (delta/dictionary) compression. Try --disable-aslr to "
+                f"see how much is ASLR vs genuinely divergent.")
+    return "KSM found and merged a substantial share of candidate pages."
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--manifest", required=True,
-                    help="tasks manifest from fetch_tasks.py (JSON list)")
+    ap.add_argument("--manifest", required=True)
     ap.add_argument("--cohort", choices=["identical", "siblings"], default="siblings")
-    ap.add_argument("-n", "--num", type=int, default=4, help="cohort size (sibling count)")
-    ap.add_argument("--test-cmd", default="", help="pytest args passed to each sandbox")
+    ap.add_argument("-n", "--num", type=int, default=4)
+    ap.add_argument("--test-cmd", default="")
     ap.add_argument("--hold-secs", type=int, default=900)
     ap.add_argument("--ready-timeout", type=int, default=1200)
     ap.add_argument("--pages-to-scan", type=int, default=4000)
     ap.add_argument("--sleep-ms", type=int, default=20)
-    ap.add_argument("--merge-settle", type=int, default=30,
-                    help="seconds of no pages_sharing growth to call it a plateau")
+    ap.add_argument("--merge-settle", type=int, default=30)
     ap.add_argument("--merge-max", type=int, default=1800)
+    ap.add_argument("--disable-aslr", action="store_true",
+                    help="set randomize_va_space=0 during the run (restored after)")
+    ap.add_argument("--keep-containers", action="store_true",
+                    help="do not remove containers at the end (for manual inspection)")
     ap.add_argument("--out", default=str(HERE / "results"))
     args = ap.parse_args()
     args.run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -208,7 +279,8 @@ def main():
         problems.append("must run as root (writes /sys/kernel/mm/ksm)")
     if sh(["docker", "info"]).returncode != 0:
         problems.append("docker not reachable")
-    if not Path("/proc/self/ksm_merging_pages").exists():
+    per_proc = Path("/proc/self/ksm_merging_pages").exists()
+    if not per_proc:
         log("note: /proc/<pid>/ksm_merging_pages absent (kernel < 5.19); "
             "per-sandbox merge counts unavailable, system-wide counts still work.")
     if problems:
@@ -220,10 +292,9 @@ def main():
     by_repo = {}
     for t in manifest:
         by_repo.setdefault(t.get("repo_name", "?"), []).append(t)
-
     if args.cohort == "identical":
         tasks = [manifest[0]] * args.num
-    else:  # siblings: N tasks sharing the biggest repo
+    else:
         repo = max(by_repo, key=lambda r: len(by_repo[r]))
         pool = by_repo[repo]
         if len(pool) < args.num:
@@ -234,7 +305,6 @@ def main():
     outdir = Path(args.out) / f"{args.run_id}-{args.cohort}"
     scratch = outdir / "scratch"
     scratch.mkdir(parents=True, exist_ok=True)
-    # Stage GT patches onto the shared volume.
     for t in tasks:
         if t.get("gt_patch"):
             name = f"gt_{t['task_id']}.patch"
@@ -242,8 +312,10 @@ def main():
             t["gt_patch_name"] = name
 
     ksm = Ksm()
+    aslr = Aslr(args.disable_aslr)
     names = []
     try:
+        aslr.apply()
         ksm.prepare(args.pages_to_scan, args.sleep_ms)
         names = launch_cohort(tasks, args, scratch)
         if not wait_ready(len(tasks), scratch, args.ready_timeout):
@@ -251,47 +323,69 @@ def main():
 
         anon_before = {n: container_anon_kb(n) for n in names}
         total_before = sum(v for v in anon_before.values() if v > 0)
+        anon_pages = (total_before * 1024) // PAGE
         log(f"cohort anon memory before merge: {total_before/1024:.0f} MiB "
-            f"across {len(names)} sandboxes")
+            f"(~{anon_pages} pages) across {len(names)} sandboxes")
 
         secs = wait_for_merge(ksm, args.merge_settle, args.merge_max)
 
-        pages_shared = ksm.stat("pages_shared")      # unique pages kept
-        pages_sharing = ksm.stat("pages_sharing")    # redundant copies reclaimed
-        saved_mib = pages_sharing * PAGE / 2**20
+        c = ksm.counters()
+        saved_mib = c.get("pages_sharing", 0) * PAGE / 2**20
         anon_after = {n: container_anon_kb(n) for n in names}
         total_after = sum(v for v in anon_after.values() if v > 0)
+        merging = {n: proc_merging_pages(container_host_pid(n)) for n in names} if per_proc else {}
+
+        # Capture container stdout (shows the prctl line) before teardown.
+        logs_dir = outdir / "container_logs"
+        logs_dir.mkdir(exist_ok=True)
+        for n in names:
+            (logs_dir / f"{n}.log").write_text(sh(["docker", "logs", n]).stdout)
 
         summary = {
             "run_id": args.run_id, "cohort": args.cohort, "num": len(names),
+            "disable_aslr": bool(args.disable_aslr),
             "merge_secs": round(secs, 1),
-            "pages_shared": pages_shared, "pages_sharing": pages_sharing,
+            "ksm_counters": c,
+            "candidate_pages": (c.get("pages_shared", 0) + c.get("pages_sharing", 0)
+                                + c.get("pages_unshared", 0) + c.get("pages_volatile", 0)),
+            "cohort_anon_pages": anon_pages,
             "ksm_saved_mib": round(saved_mib, 1),
             "anon_before_mib": round(total_before / 1024, 1),
             "anon_after_mib": round(total_after / 1024, 1),
             "ksm_saving_pct_of_anon": (round(100 * saved_mib / (total_before / 1024), 2)
                                        if total_before > 0 else None),
-            "full_scans": ksm.stat("full_scans"),
+            "per_container_merging_pages": merging,
+            "diagnosis": diagnose(c, anon_pages),
         }
         (outdir / "summary.json").write_text(json.dumps(summary, indent=2))
         with (outdir / "runs.csv").open("w", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["container", "task_id", "anon_before_kb", "anon_after_kb"])
+            w.writerow(["container", "task_id", "anon_before_kb", "anon_after_kb", "merging_pages"])
             for n, t in zip(names, tasks):
                 w.writerow([n, t.get("task_id", "?"), anon_before.get(n, -1),
-                            anon_after.get(n, -1)])
+                            anon_after.get(n, -1), merging.get(n, -1)])
 
-        log("=" * 60)
-        log(f"KSM merged {pages_sharing} pages = {saved_mib:.0f} MiB reclaimed "
+        log("=" * 66)
+        log(f"KSM merged {c.get('pages_sharing',0)} pages = {saved_mib:.1f} MiB "
             f"({summary['ksm_saving_pct_of_anon']}% of cohort anon)")
-        log(f"unique dedup pages kept (pages_shared): {pages_shared}")
+        log(f"counters: {c}")
+        log(f"candidate pages scanned ~ {summary['candidate_pages']} "
+            f"vs cohort anon ~ {anon_pages} pages")
+        if merging:
+            log(f"per-container merging_pages: {merging}")
+        log(f"DIAGNOSIS: {summary['diagnosis']}")
         log(f"results in {outdir}")
-        log("=" * 60)
+        log("=" * 66)
     finally:
-        for n in names:
-            sh(["docker", "rm", "-f", n])
+        if not args.keep_containers:
+            for n in names:
+                sh(["docker", "rm", "-f", n])
+            log("containers removed.")
+        else:
+            log(f"containers kept: {names}")
         ksm.restore()
-        log("containers removed, KSM settings restored.")
+        aslr.restore()
+        log("KSM settings restored.")
 
 
 if __name__ == "__main__":
