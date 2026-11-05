@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
-WORKDIR="${WORKDIR:-$ZB_DIR/workdir-agent}"   # Phase 1b: snapshot built with init_agentzip
+WORKDIR="${WORKDIR:-/tmp/zb-workdir-agent}"   # LOCAL disk; Phase 1b snapshot built with init_agentzip
 PORT="${PORT:-8080}"
 ZB="$ZB_DIR/target/release/zeroboot"
 HERE="$(cd "$(dirname "$0")" && pwd)"

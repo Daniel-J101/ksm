@@ -15,7 +15,7 @@
 set -euo pipefail
 
 ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
-WORKDIR="${WORKDIR:-$ZB_DIR/workdir-agent}"
+WORKDIR="${WORKDIR:-/tmp/zb-workdir-agent}"   # LOCAL disk, not NFS
 ZB="$ZB_DIR/target/release/zeroboot"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"

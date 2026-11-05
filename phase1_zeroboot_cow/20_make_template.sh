@@ -9,7 +9,7 @@ set -euo pipefail
 
 ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
 KERNEL="${KERNEL:-$ZB_DIR/guest/vmlinux-fc}"   # ships in the repo
-WORKDIR="${WORKDIR:-$ZB_DIR/workdir-agent}"
+WORKDIR="${WORKDIR:-/tmp/zb-workdir-agent}"   # LOCAL disk, not NFS (see 10_build_agent_rootfs.sh)
 ROOTFS="${ROOTFS:-$WORKDIR/rootfs.ext4}"
 WAIT_SECS="${WAIT_SECS:-5}"                     # agent reaches idle in <1s; 5 is safe
 INIT_PATH="${INIT_PATH:-/init}"                 # our PID1 is the compiled agent, NOT /init.py

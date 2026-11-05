@@ -13,14 +13,17 @@ set -euo pipefail
 
 ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
 AGENT="${AGENT:-$ZB_DIR/guest/init}"         # compiled static PID1 binary
-OUT_WORKDIR="${OUT_WORKDIR:-$ZB_DIR/workdir-agent}"
+# Default to LOCAL disk, never NFS: CloudLab home dirs (/users, /proj) are NFS,
+# and Firecracker's 512 MB snapshot write to NFS exceeds Zeroboot's 5s socket
+# timeout (-> "os error 11"). /tmp is local on CloudLab images.
+WORKDIR="${WORKDIR:-/tmp/zb-workdir-agent}"
 SIZE_MB="${SIZE_MB:-32}"                      # agent is tiny; 32 MB is plenty
-ROOTFS="$OUT_WORKDIR/rootfs.ext4"
+ROOTFS="$WORKDIR/rootfs.ext4"
 
 test -x "$AGENT" || { echo "FATAL: agent binary $AGENT missing. Run 'make guest' (00_provision.sh) or build the Phase 1b agent."; exit 1; }
 command -v mkfs.ext4 >/dev/null || { echo "need e2fsprogs"; exit 1; }
 
-mkdir -p "$OUT_WORKDIR"
+mkdir -p "$WORKDIR"
 echo "== build $ROOTFS (${SIZE_MB} MB) with PID1 = $AGENT =="
 rm -f "$ROOTFS"
 truncate -s "${SIZE_MB}M" "$ROOTFS"
@@ -43,5 +46,5 @@ cat <<EOF
 == rootfs built ==
   rootfs : $ROOTFS
   PID1   : /init   (pass init_path=/init to the template step)
-Next: sudo WORKDIR=$OUT_WORKDIR bash 20_make_template.sh
+Next: sudo WORKDIR=$WORKDIR bash 20_make_template.sh
 EOF
