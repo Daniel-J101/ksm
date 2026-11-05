@@ -1,123 +1,110 @@
 # Phase 1 — Reproduce the AgentZip sandbox environment (Zeroboot + CoW)
 
-**Goal (from the plan):** get Zeroboot running on CloudLab and *prove that
-multiple VMs actually share physical memory through copy-on-write* — launch 16
-sandboxes from one snapshot. **No LLM yet.**
+**Goal:** get Zeroboot running on CloudLab and *prove multiple VMs share physical
+memory through copy-on-write* — launch many sandboxes from one snapshot. **No LLM.**
 
-This reproduces the sandbox substrate of the AgentZip paper (`../../agentzip.pdf`,
-§3.1 / §5.1): "We implement AgentZip on top of Zeroboot, a KVM-based sandbox
-runtime that creates sandboxes from Firecracker memory snapshots using CoW
-cloning. All sandboxes belonging to the same workload use the same snapshot as
-their template and initially share its memory through copy-on-write mappings.
-Pages modified during execution become sandbox-owned private pages."
+This reproduces the substrate of the AgentZip paper (`../../agentzip.pdf`, §3.1/§5.1):
+sandboxes are forked from one Firecracker memory snapshot and initially share it
+through CoW; written pages become sandbox-private.
 
-## Run order (on the CloudLab node, as root)
+> These scripts were written against the **actual Zeroboot source** (now checked
+> out at `../../zeroboot/`), not the deployment doc — which is wrong in two
+> places. See "What the source actually says" below.
+
+## The fast path (primary deliverable)
 
 ```bash
-sudo bash 00_provision.sh          # KVM, Firecracker >=1.12, Rust, build Zeroboot, guest kernel
-python3 ../../numa_ksm_bench/agentzip_ksm_bench/fetch_tasks.py \
-        --repo scrapy --num 1 --out task.json      # get a repo's docker_image + pkg
-sudo bash 10_build_r2e_rootfs.sh \
-        --docker-image "$(jq -r .[0].docker_image task.json)" \
-        --pkg "$(jq -r .[0].pkg task.json)" --repo scrapy
-sudo WORKDIR=$HOME/zeroboot/workdir-r2e bash 20_make_template.sh   # the snapshot
-sudo BACKGROUND=1 WORKDIR=$HOME/zeroboot/workdir-r2e bash 30_serve.sh
-sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 20 --touch-mb 0   # SHARING
-sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 20 --touch-mb 50  # CoW isolation
+# on the CloudLab node, with the zeroboot repo at ~/zeroboot
+sudo bash 00_provision.sh          # KVM, Firecracker, Rust; make build + make guest
+bash      10_build_agent_rootfs.sh # 32 MB ext4 whose PID1 is the compiled guest/init
+sudo      bash 20_make_template.sh # zeroboot template ... /init  -> workdir-agent/snapshot
+sudo      bash 25_bench.sh         # zeroboot bench -> the CoW proof
 ```
 
-## Why each step
+`25_bench.sh` runs Zeroboot's own `bench`, which **is** the Phase 1 experiment:
 
-| Step | What it does | Paper mapping |
-|---|---|---|
-| `00_provision.sh` | installs KVM/Firecracker/Rust, builds Zeroboot, fetches a guest `vmlinux` | §5.1 host setup |
-| `10_build_r2e_rootfs.sh` | bakes one R2E repo (`/testbed` + deps) into a bootable Zeroboot rootfs; `init.py` **warms** the package so its pages are in the snapshot | §5.1 template = base OS + libs + repo |
-| `20_make_template.sh` | `zeroboot template …` → the immutable snapshot every fork CoW-shares | the "template" / `template_id` |
-| `30_serve.sh` | `zeroboot serve …` → one process that forks VMs in-process | the sandbox runtime |
-| `40_cow_probe.py` | holds N forks resident, measures physical memory vs N×snapshot | the CoW proof |
+- **Concurrent fork test** forks **10, 100, 1000** VMs from the one snapshot and
+  prints total process RSS. RSS staying ~flat (≈ one snapshot) while the count
+  grows 100× is the sharing proof — the naive no-CoW cost would be `count × mem_mib`.
+- **Isolation test** shows fork B can't read fork A's secret, and A is unchanged
+  after B writes — CoW hands out private copies on write.
 
-## What success looks like
+Bigger snapshot = more dramatic: `sudo MEM_MIB=1024 bash 20_make_template.sh`.
 
-`40_cow_probe.py` prints a sweep. The headline is the last row:
+## Optional Phase 1b — CoW *under execution* (forks that dirty memory)
 
+`bench` forks never run a vCPU, so they never dirty pages (pure sharing, upper
+bound). To match the paper's regime — forks resident *and* accumulating private
+state — use the patched agent + probe:
+
+```bash
+musl-gcc -static -Os -march=x86-64 -mno-avx -mno-avx2 \
+    -o ~/zeroboot/guest/init_agentzip init_agentzip.c          # adds `work <mb> <spins>`
+AGENT=~/zeroboot/guest/init_agentzip bash 10_build_agent_rootfs.sh
+sudo bash 20_make_template.sh
+sudo BACKGROUND=1 bash 30_serve.sh
+sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 15 --touch-mb 0    # sharing
+sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 15 --touch-mb 50   # private growth
 ```
-== Phase 1 result ==
-16 forks of a 512 MB snapshot cost ~X MB of private memory
-(naive no-CoW would be 8192 MB) -> CoW eliminated ~9X%.
-```
 
-- **`--touch-mb 0`** (every fork only reads): serve-process growth should be
-  near zero and `cow_sharing_pct` ≈ 99%+. That is the proof that forks **share**
-  the snapshot.
-- **`--touch-mb 50`** (every fork dirties 50 MB): `per_fork_private_MB` ≈ 50,
-  growth ≈ 50×N. Private memory tracks **touched bytes, not snapshot size** —
-  that is CoW isolating writes. Fork creation time (`fork_time_ms`) should be
-  sub-millisecond-ish, matching Zeroboot's "1000 forks in 815 ms".
+`--touch-mb 0` → serve RSS barely moves (forks share the snapshot). `--touch-mb 50`
+→ per-fork private ≈ 50 MiB: private memory tracks **touched bytes, not snapshot
+size**. Results in `results/cow-*.json|csv`.
 
-Results land in `results/cow-<ts>-touch{0,50}.json` and `.csv`.
+## What the source actually says (and why the earlier plan changed)
 
-## How the measurement works (and why it's valid)
+Reading `../../zeroboot/src`:
 
-Zeroboot runs every fork as an **in-process KVM VM** inside the single
-`zeroboot serve` process, each `mmap(MAP_PRIVATE)`-ing the one snapshot file
-(Zeroboot `ARCHITECTURE.md`; `src/vmm/kvm.rs`). So the whole CoW story shows up
-in that process's `/proc/<pid>/smaps_rollup`:
+1. **`init_path` is run as PID 1 directly** — `boot_args: ... init={init_path}`
+   ([firecracker.rs:96](../../zeroboot/src/vmm/firecracker.rs#L96)). So the rootfs
+   just needs an executable at that path. The deploy doc's `/init.py` is wrong;
+   our PID 1 is the compiled C agent, so **`init_path=/init`**.
+2. **The open-source guest agent can't run code.** [guest/init.c](../../zeroboot/guest/init.c)
+   handles only `echo`/`cat` over serial. The Python-capable agent used by the
+   paper / managed `api.zeroboot.dev` is **not in the public repo.** So:
+   - Phase 1 (a *memory* proof) needs no Python → **minimal agent rootfs**, not a
+     baked R2E repo. (R2E baking waits for a real workload agent in a later phase.)
+   - `40_cow_probe.py` needs the Phase 1b agent (`init_agentzip.c`); against the
+     stock agent it can't hold a fork or dirty memory — use `25_bench.sh` there.
+3. **A fork lives for exactly one `/v1/exec`** — `execute_code` forks, sends the
+   command, waits for `ZEROBOOT_DONE`, then drops (munmaps) the VM
+   ([handlers.rs:328-416](../../zeroboot/src/api/handlers.rs#L328)). To hold N
+   forks we fire N concurrent requests whose guest command busy-spins. It must
+   **busy-spin, not sleep**: a sleeping guest HLTs and `run_until_marker` returns
+   on HLT-with-no-input ([kvm.rs:262](../../zeroboot/src/vmm/kvm.rs#L262)), ending
+   the request and the fork early.
+4. **Forks are in-process KVM VMs** inside the one `serve`/`bench` process, each
+   `mmap(MAP_PRIVATE)` of the snapshot memfd ([kvm.rs:66](../../zeroboot/src/vmm/kvm.rs#L66)).
+   So memory is measured at that process (RSS / smaps), not per-container cgroups.
 
-- the snapshot is mapped **once** at serve start → already in the baseline `Pss`;
-- each live fork adds only its **`Private_Dirty`** CoW pages.
+## Faithfulness & remaining gaps
 
-The probe samples `smaps_rollup` (serve-process view) **and** `/proc/meminfo`
-(system view) while N forks are held, subtracts the no-fork baseline, and
-compares to `N × snapshot_MB`. Both views should agree that cost ≪ naive.
+- **Stock Zeroboot = ephemeral exec, no persistent sandboxes, no code execution.**
+  The paper's persistent E2B-compatible, code-running sandboxes are AgentZip's own
+  layer. Reproducing the *workloads* (Phases 2–4) will require us to build a
+  Python-capable guest agent — essentially the piece the authors built on top of
+  Zeroboot. `init_agentzip.c` is the first seed of that.
+- **No networking in forks (serial only)** → repos/deps must be baked into the
+  rootfs once we have a real agent; one template per repo (paper's 10 repos).
+- **KSM endgame** measures residual exact dedup on top of CoW — the baseline the
+  paper calls weak (§6.1); the large residual *similarity* (76–96%, §6.5) is what
+  AgentZip's delta/dictionary codecs target and KSM can't.
+- **Node kernel** `6.8.0-138` is fine (KVM/userfaultfd/KSM present; paper used 5.15).
 
-## Faithfulness to the paper — and the gaps (read before trusting results)
+## Steps I could not test from the WSL dev box (verify on-node)
 
-1. **Stock Zeroboot is ephemeral exec, not persistent sandboxes.** The public
-   repo exposes only `POST /v1/exec` (fork → run → destroy) and a fixed `bench`.
-   The paper's *persistent, E2B-compatible, lifecycle-managed* sandboxes are
-   **AgentZip's own layer on top of Zeroboot and are not in the open repo.** For
-   Phase 1 (a CoW proof) ephemeral exec is exactly right — we just hold forks
-   resident with a sleeping payload. For later trajectory replay, run each
-   trajectory as **one long-lived exec** that sleeps `think_time_ms_before`
-   between tool actions.
-2. **No networking inside forks (serial I/O only).** Can't `pip`/`git` inside a
-   fork → every repo must be pre-baked into the rootfs (step 10). The real
-   study needs **one template per repo** (the paper's 10 repos).
-3. **In-process forks ⇒ host-level memory accounting.** You measure aggregate
-   private memory at the serve process, not per-container cgroups (unlike the
-   earlier docker+KSM harness). Great for a CoW proof; per-sandbox attribution
-   would need instrumenting Zeroboot.
-4. **The KSM endgame measures the baseline the paper calls weak.** Because CoW
-   already captures exact-page sharing at fork, KSM finds little *additional*
-   exact dedup on resident forks — which is precisely §6.1. The interesting KSM
-   number is residual exact dedup across *diverged* private pages; the large
-   residual *similarity* (76–96%, §6.5) is what KSM can't touch and AgentZip's
-   delta/dictionary codecs target.
-5. **Kernel / model.** CloudLab node is `6.8.0-138` (the "6.18" in the brief is
-   almost certainly a typo for 6.8) — fine: KVM, userfaultfd, KSM all present
-   (paper used 5.15; newer is OK). **DeepSeek-V4** in the paper is future-dated;
-   use whatever DeepSeek you have API access to for later trace generation — the
-   model only decides trajectory *content*, not CoW/KSM mechanics.
+- `00`: `make guest` needs `musl-tools`; `make build` needs the Rust toolchain on PATH.
+- `10`: loop-mounting ext4 needs root; `debugfs` listing is best-effort.
+- `20`: if `template` fails, re-run with `ZEROBOOT_DEBUG=1`; confirm `snapshot/{mem,vmstate}` appear.
+- `25`: `bench`'s "KB/fork" is `total_RSS / count` — read the *trend* across
+  10/100/1000, not the absolute, as the sharing signal.
+- `40`: needs root to read the serve process's `smaps_rollup`; pick `--spins` high
+  enough to outlast `--hold` on this CPU (default 2e10 ≈ several s on a Xeon).
 
-## On-node things to verify (I could not test these from the WSL dev box)
+## Next phases (not built)
 
-- `00`: the exact `vmlinux` path Zeroboot's `template` expects, and that the CI
-  kernel URL is still live / Zeroboot-compatible. Prefer a `guest/` kernel if
-  the repo ships one.
-- `10`: that the overlaid rootfs still **boots and execs** under Zeroboot
-  (`zeroboot test-exec <workdir> 'python3 -c "import <pkg>"'`). Guest python ABI
-  must match the exported site-packages; if imports fail, rebuild deps against
-  the guest python instead of copying site-packages.
-- `40`: `smaps_rollup` of the root-owned serve process needs root (run with
-  `sudo`); confirm a fork actually stays resident for the whole `--hold` window
-  (it should: the exec call blocks until the guest code returns).
-
-## Next phases (not built yet)
-
-- **Phase 2 — Trace record:** drive each sandbox with DeepSeek once; record the
-  tool-action sequence + `think_time_ms_before` per call (paper §5.3).
-- **Phase 3 — Deterministic replay + KSM baseline:** replay traces with no LLM,
-  sample `M(t)` once/sec, and measure KSM's realized dedup across the cohort
+- **Phase 2 — trace record:** a Python-capable agent + DeepSeek, recording tool
+  actions + `think_time_ms_before` (§5.3).
+- **Phase 3 — replay + KSM baseline:** deterministic replay, `M(t)` 1/s, KSM dedup
   (builds on `../../numa_ksm_bench/agentzip_ksm_bench/`).
-- **Phase 4 — AgentZip codecs:** template-delta + cohort-dictionary + RLE over
-  the same resident cohort to quantify the residual the paper targets.
+- **Phase 4 — AgentZip codecs:** template-delta + cohort-dictionary + RLE.
