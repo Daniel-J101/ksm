@@ -7,24 +7,24 @@ This reproduces the substrate of the AgentZip paper (`../../agentzip.pdf`, §3.1
 sandboxes are forked from one Firecracker memory snapshot and initially share it
 through CoW; written pages become sandbox-private.
 
-> These scripts were written against the **actual Zeroboot source** (now checked
-> out at `../../zeroboot/`), not the deployment doc — which is wrong in two
-> places. See "What the source actually says" below.
+> These scripts were written against the **actual Zeroboot source**, not the
+> deployment doc — which is wrong in two places. See "What the source actually
+> says" below. Zeroboot is **not vendored**: it's a pinned upstream commit plus
+> ksm patches, built at `~/zeroboot` by [`../zeroboot-pin/`](../zeroboot-pin/README.md).
 
 ## The fast path (primary deliverable)
 
 ```bash
-# on the CloudLab node, with the zeroboot repo at ~/zeroboot
-sudo bash 00_provision.sh          # KVM, Firecracker, Rust; make build + make guest
+# on a fresh CloudLab node, from this directory
+sudo bash 00_provision.sh          # apt, Firecracker v1.12.0, pinned+patched zeroboot, kernel, build
 bash      10_build_agent_rootfs.sh # 32 MB ext4 whose PID1 is the compiled guest/init
-sudo      bash 20_make_template.sh # zeroboot template ... /init  -> workdir-agent/snapshot
+sudo      bash 20_make_template.sh # zeroboot template ... /init  -> $WORKDIR/snapshot
 python3   tools/inspect_vmstate.py /tmp/zb-workdir-agent/snapshot/vmstate  # gate: anchors OK?
 sudo      bash 25_bench.sh         # zeroboot bench -> the CoW proof
 ```
 
-> `bench`/`serve` restore guest CPU state via `parse_vmstate`. On this node that
-> needed the independent-anchor fix — see "vmstate parser" below; run
-> `inspect_vmstate.py` once after step 20 to confirm it anchors before `bench`.
+Paths (`ZB_DIR`, `WORKDIR`) come from [`../env.sh`](../env.sh) and can be
+overridden per command. Verified end to end from a fresh clone on 2026-11-19.
 
 `25_bench.sh` runs Zeroboot's own `bench`, which **is** the Phase 1 experiment:
 
@@ -94,7 +94,7 @@ Reading `../../zeroboot/src`:
 - **KSM endgame** measures residual exact dedup on top of CoW — the baseline the
   paper calls weak (§6.1); the large residual *similarity* (76–96%, §6.5) is what
   AgentZip's delta/dictionary codecs target and KSM can't.
-- **Node kernel** `6.8.0-138` is fine (KVM/userfaultfd/KSM present; paper used 5.15).
+- **Node kernel** `6.18.0-061800-generic` (host) is fine (KVM/userfaultfd/KSM present; paper used 5.15).
 
 ## vmstate parser: independent-anchor fix (was the blocker)
 
@@ -116,23 +116,18 @@ and 1.12.1.)
 
 1. **IOAPIC** — its MMIO base constant `0xFEC00000`.
 2. **EFER / vCPU block** — the EFER (`0xD01`/`0x501`) + APIC-base (`0xFEE00xxx`)
-   adjacency, cross-checked against a plausible CR0 (PE|PG set) and CR3 (nonzero,
-   4K-aligned) just before it. The CR check disambiguates the real EFER from the
+   adjacency, cross-checked against a plausible CR0 (PE|PG set) and CR3
+   (nonzero page-table base, **PCID-aware**) just before it. The CR check disambiguates the real EFER from the
    same value sitting in the MSR list.
 
 `LAPIC..XSAVE` is one *rigid* kvm-vcpu struct, so once EFER is located the
 remaining fields follow at fixed, build-stable deltas — no global shift. The old
 `REF_*` table is kept only to compute those deltas, never as absolute positions.
 
-This is already applied to `src/vmm/vmstate.rs` in the checkout here. Because
-`zeroboot/` is a **separate checkout on the node** (and gitignored from this
-repo), apply the same change there before rebuilding:
-
-```bash
-cd ~/zeroboot
-git apply /path/to/phase1_zeroboot_cow/tools/vmstate_independent_anchor.patch
-source $HOME/.cargo/env && cargo build --release
-```
+The fix is [`../zeroboot-pin/patches/0001-vmstate-independent-anchor-pcid.patch`](../zeroboot-pin/patches/0001-vmstate-independent-anchor-pcid.patch);
+`00_provision.sh` → `setup_zeroboot.sh` applies it. If you change `vmstate.rs`,
+regenerate the patch (see `../zeroboot-pin/README.md`) and keep
+`tools/inspect_vmstate.py` in sync — it must mirror the Rust exactly.
 
 **Verify the anchors landed before trusting `bench`.** `tools/inspect_vmstate.py`
 is a faithful mirror of the Rust `resolve_offsets`: it derives the same offsets,
@@ -145,11 +140,18 @@ python3 tools/inspect_vmstate.py /tmp/zb-workdir-agent/snapshot/vmstate
 # add --diag for a hexdump around the IOAPIC anchor.
 ```
 
-> ⚠️ Developed on this Mac, where the Rust can't be compiled (`kvm-bindings` is
-> Linux-only) and there's no real `vmstate`. The algorithm was validated against
-> a synthetic vmstate reproducing this node's independent shift; the
-> `inspect_vmstate.py` gate is the on-node confirmation that it anchors correctly
-> on the *real* snapshot. Run it first.
+> ✅ **Verified on-node (2026-11-19)** against the real 512 MiB snapshot: IOAPIC
+> at `0x5a4` (shift +19), vCPU block at EFER `0x2640` (shift −1205); RIP
+> `0xffffffff819a220b`, CR3 `0x38de005`. `bench` passes end to end (100/100
+> fork+exec, 1000 concurrent forks, isolation PASS).
+>
+> **PCID gotcha (was the second blocker):** the first version of the EFER anchor
+> required CR3 to be 4K-aligned. The guest kernel runs with `CR4.PCIDE` (bit 17)
+> set, so CR3's low 12 bits hold the PCID (`0x005` here) and the only real
+> candidate was rejected ("cannot locate EFER/vCPU block"). The check now
+> requires a nonzero page-table base (bits 12–51) with reserved bits 52–63 clear,
+> and allows only PWT/PCD in the low bits when PCIDE is off. The Rust
+> `cr3_plausible` and the Python `cr3_plausible` in the inspector are the same check.
 
 ### Parser-free fallback: `26_cow_mmap_demo.py`
 
@@ -163,37 +165,33 @@ python3 26_cow_mmap_demo.py --n 16 --touch-mb 50   # Private_Dirty ~= N x 50 MiB
 python3 26_cow_mmap_demo.py --n 1000 --no-read     # 1000 mappings ~ free (Zeroboot's 265 KB/fork)
 ```
 
-## Known issue: raise Zeroboot's socket timeout before step 20
+## Node gotchas (all handled by the scripts; listed so you know why)
 
-Firecracker's **Full snapshot is a dev-preview path** that writes the mem file at
-~80 MB/s (measured on CloudLab: 256 MB → 3.2 s; 512 MB → ~6.4 s). Zeroboot's
-socket timeout is hardcoded at **5 s** ([firecracker.rs:9](../../zeroboot/src/vmm/firecracker.rs#L9)),
-so any snapshot ≥ ~400 MB fails with `Error: Resource temporarily unavailable
-(os error 11)` — an EAGAIN from the timed-out `stream.read`, not a snapshot
-failure. Fix once in the source and rebuild:
-
-```bash
-sudo sed -i 's/from_secs(5)/from_secs(120)/g' $ZB_DIR/src/vmm/firecracker.rs
-sudo bash -lc 'source $HOME/.cargo/env; cd $ZB_DIR && cargo build --release'
-```
-
-Two more node gotchas: the repo may be **root-owned** (edit/build with `sudo`),
-and CloudLab **home dirs are NFS** — keep `WORKDIR` on local disk (`/tmp`), the
-default here, or snapshot writes are even slower. To see guest boot / Firecracker
-errors during `template`, temporarily make its child stdio inherit:
-`sed -i -e 's/\.stdout(Stdio::null())/.stdout(Stdio::inherit())/' -e 's/\.stderr(Stdio::piped())/.stderr(Stdio::inherit())/' $ZB_DIR/src/vmm/firecracker.rs`.
-
-## Steps I could not test from the WSL dev box (verify on-node)
-
-- `00`: `make guest` needs `musl-tools`; `make build` needs the Rust toolchain on PATH.
-- `10`: loop-mounting ext4 needs root; `debugfs` listing is best-effort.
-- `20`: if `template` fails, re-run with `ZEROBOOT_DEBUG=1`; confirm `snapshot/{mem,vmstate}` appear.
-- `25`: `bench` needs the vmstate fix applied + rebuilt (`git apply` the patch,
-  `cargo build --release`) and `inspect_vmstate.py` reporting "ALL CHECKS PASS"
-  first. Its "KB/fork" is `total_RSS / count` — read the *trend* across
-  10/100/1000, not the absolute, as the sharing signal.
-- `40`: needs root to read the serve process's `smaps_rollup`; pick `--spins` high
-  enough to outlast `--hold` on this CPU (default 2e10 ≈ several s on a Xeon).
+- **Socket timeout.** Firecracker's Full snapshot (a dev-preview path) writes the
+  mem file at ~80 MB/s (256 MB → 3.2 s; 512 MB → ~6.4 s). Upstream Zeroboot's
+  socket timeout is hardcoded at **5 s** ([firecracker.rs:9](../../zeroboot/src/vmm/firecracker.rs#L9)),
+  so snapshots ≥ ~400 MB fail with `Resource temporarily unavailable (os error 11)`
+  — EAGAIN from the timed-out read, not a snapshot failure. Fixed by
+  `zeroboot-pin/patches/0002-firecracker-socket-timeout-120s.patch`.
+- **Guest kernel isn't in the repo.** `guest/vmlinux-fc` is gitignored upstream;
+  `setup_zeroboot.sh` downloads Firecracker's CI 6.1.128 kernel and checks it
+  against a pinned sha256.
+- **fd limit.** 1000 concurrent forks exceed the default 1024 open files
+  (`Too many open files (os error 24)`): each fork holds KVM VM + vCPU fds.
+  `25_bench.sh` and `30_serve.sh` raise `ulimit -n` (override with `NOFILE=`).
+- **Root-owned build state.** `sudo` on these images keeps `HOME`, so running
+  rustup/cargo under sudo leaves root-owned `~/.cargo`, `~/.rustup`,
+  `~/zeroboot/target`. `00_provision.sh` now builds as `$SUDO_USER` and
+  `chown`s any of those it finds root-owned.
+- **Local disk.** Keep `WORKDIR` on local disk (`/tmp`, the default); some
+  CloudLab profiles mount homes over NFS, which makes snapshot writes slower.
+- **Debugging `template`.** To see guest boot / Firecracker errors, temporarily
+  make its child stdio inherit (don't commit this into a patch):
+  `sed -i -e 's/\.stdout(Stdio::null())/.stdout(Stdio::inherit())/' -e 's/\.stderr(Stdio::piped())/.stderr(Stdio::inherit())/' $ZB_DIR/src/vmm/firecracker.rs`.
+- **Reading `bench`.** "KB/fork" is `total_RSS / count`. Read the *trend* across
+  10/100/1000; bench forks never run a vCPU, so RSS stays far below the snapshot.
+- **`40_cow_probe.py`** needs root to read the serve process's `smaps_rollup`;
+  pick `--spins` high enough to outlast `--hold` (default 2e10 ≈ several s on a Xeon).
 
 ## Next phases (not built)
 

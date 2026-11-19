@@ -1,5 +1,5 @@
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index dc79bdc..42c330c 100644
+index dc79bdc..8df0306 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -13,7 +13,7 @@ All notable changes to zeroboot are recorded here. The format follows [Keep a Ch
@@ -7,15 +7,15 @@ index dc79bdc..42c330c 100644
  
  ### Fixed
 -- TODO: bug fixes (for example: vmstate offset detection on hosts where sections shift independently, issue #4 / PR #8).
-+- vmstate offset detection on hosts where sections shift independently (issue #4 / PR #8): `parse_vmstate` no longer applies a single global shift anchored on the IOAPIC base. It now anchors the IOAPIC block and the vCPU register block independently by content (IOAPIC MMIO base `0xFEC00000`; EFER + APIC-base-MSR adjacency validated against CR0/CR3), then derives the rigid `LAPIC..XSAVE` struct from fixed intra-block deltas. Fixes the `"IOAPIC base address 0xFEC00000 not found"` bail on builds where the IOAPIC→EFER distance differs from the reference layout.
++- vmstate offset detection on hosts where sections shift independently (issue #4 / PR #8): `parse_vmstate` no longer applies a single global shift anchored on the IOAPIC base. It now anchors the IOAPIC block and the vCPU register block independently by content (IOAPIC MMIO base `0xFEC00000`; EFER + APIC-base-MSR adjacency validated against CR0 (PE|PG) and a PCID-aware CR3 check — with `CR4.PCIDE` set the low 12 bits of CR3 are the PCID, so CR3 is not 4K-aligned on modern Linux guests), then derives the rigid `LAPIC..XSAVE` struct from fixed intra-block deltas. Fixes the `"IOAPIC base address 0xFEC00000 not found"` bail on builds where the IOAPIC→EFER distance differs from the reference layout.
  
  ### Security
  - TODO: entropy handling changes and what remains the user's responsibility (userspace PRNG reseeding).
 diff --git a/src/vmm/vmstate.rs b/src/vmm/vmstate.rs
-index af66370..9928a63 100644
+index af66370..5779f44 100644
 --- a/src/vmm/vmstate.rs
 +++ b/src/vmm/vmstate.rs
-@@ -1,10 +1,20 @@
+@@ -1,10 +1,19 @@
  use anyhow::{bail, Result};
  use kvm_bindings::*;
  
@@ -36,11 +36,10 @@ index af66370..9928a63 100644
 +// Everything from LAPIC..XSAVE is one rigid kvm-vcpu struct, so once EFER is
 +// located the rest follow at the fixed intra-block deltas below (which, unlike
 +// the absolute positions, are stable across builds).
-+#[allow(dead_code)] // kept for documentation; IOAPIC is found by constant search
  const REF_IOAPIC: usize = 0x0591;
  const REF_LAPIC: usize = 0x2541;
  const REF_REGS: usize = 0x2955;
-@@ -17,6 +27,22 @@ const REF_APIC_BASE: usize = 0x2AFD;
+@@ -17,6 +26,22 @@ const REF_APIC_BASE: usize = 0x2AFD;
  const REF_XCRS: usize = 0x2B75;
  const REF_XSAVE: usize = 0x2D0D;
  
@@ -63,7 +62,7 @@ index af66370..9928a63 100644
  pub struct ParsedVmState {
      pub regs: kvm_regs,
      pub sregs: kvm_sregs,
-@@ -28,45 +54,115 @@ pub struct ParsedVmState {
+@@ -28,45 +53,129 @@ pub struct ParsedVmState {
      pub cpuid_entries: Vec<kvm_cpuid_entry2>,
  }
  
@@ -107,8 +106,21 @@ index af66370..9928a63 100644
 +/// Locate EFER (and thereby the whole vCPU block) by content, independent of
 +/// where IOAPIC landed. EFER is a small long-mode constant; the APIC-base MSR
 +/// immediately after it masks to 0xFEE00000. We additionally require a plausible
-+/// CR0 (PE|PG) and CR3 (nonzero, page-aligned) just before, which disambiguates
++/// CR0 (PE|PG) and CR3 (nonzero page-table base; see `cr3_plausible`) just before, which disambiguates
 +/// the real EFER from an identical value sitting in the MSR list.
++/// CR3 = page-table base (bits 12..51) + low flag bits. With CR4.PCIDE (bit 17)
++/// set, bits 0..11 are the PCID (Linux guests use nonzero PCIDs, e.g. 0x005),
++/// so CR3 is *not* 4K-aligned. Without PCIDE only PWT (bit 3) / PCD (bit 4) may
++/// be set. Bits 52..63 are reserved in the stored value.
++fn cr3_plausible(cr3: u64, cr4: u64) -> bool {
++    const BASE_MASK: u64 = 0x000F_FFFF_FFFF_F000;
++    const PCIDE: u64 = 1 << 17;
++    if cr3 & BASE_MASK == 0 || cr3 & !(BASE_MASK | 0xFFF) != 0 {
++        return false;
++    }
++    cr4 & PCIDE != 0 || cr3 & 0xFFF & !0x18 == 0
++}
++
 +fn find_efer(data: &[u8]) -> Result<usize> {
 +    const CR_DELTA: isize = REF_CR as isize - REF_EFER as isize; // -0x28
 +    let mut first: Option<usize> = None;
@@ -131,8 +143,9 @@ index af66370..9928a63 100644
 +        if cr0 & 1 == 0 || cr0 & (1 << 31) == 0 {
 +            continue; // CR0.PE and CR0.PG must be set (paging on)
 +        }
-+        if cr3 == 0 || cr3 & 0xFFF != 0 {
-+            continue; // CR3 is a nonzero, 4K-aligned physical address
++        let cr4 = r64(data, cr + 24);
++        if !cr3_plausible(cr3, cr4) {
++            continue; // CR3 must hold a nonzero page-table base (PCID-aware)
 +        }
 +        matches += 1;
 +        if first.is_none() {
@@ -203,7 +216,7 @@ index af66370..9928a63 100644
          cpuid_entries: parse_cpuid(data),
      })
  }
-@@ -122,14 +218,8 @@ fn parse_seg(d: &[u8], o: usize) -> kvm_segment {
+@@ -122,14 +231,8 @@ fn parse_seg(d: &[u8], o: usize) -> kvm_segment {
      }
  }
  
@@ -220,7 +233,7 @@ index af66370..9928a63 100644
      let mut s = kvm_sregs::default();
      s.cs = parse_seg(d, segs);
      s.ds = parse_seg(d, segs + 24);
-@@ -140,21 +230,21 @@ fn parse_sregs(d: &[u8], shift: isize) -> kvm_sregs {
+@@ -140,21 +243,21 @@ fn parse_sregs(d: &[u8], shift: isize) -> kvm_sregs {
      s.tr = parse_seg(d, segs + 144);
      s.ldt = parse_seg(d, segs + 168);
      s.gdt = kvm_dtable {

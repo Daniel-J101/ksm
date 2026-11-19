@@ -1,0 +1,3 @@
+Loading snapshot from /tmp/zb-workdir-agent...
+  Memory: 512 MiB
+Error: cannot locate EFER/vCPU block: no EFER(0xD01|0x501) + APIC-base(0xFEE00xxx) + CR0/CR3 pattern found. Run tools/inspect_vmstate.py <vmstate> to dump candidates.

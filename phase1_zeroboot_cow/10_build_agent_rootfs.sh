@@ -11,12 +11,11 @@
 #   AGENT=guest/init_agentzip bash 10_...    # Phase 1b agent with work/hold builtins
 set -euo pipefail
 
-ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
+source "$(cd "$(dirname "$0")" && pwd)/../env.sh"   # ZB_DIR, WORKDIR, ZB defaults
 AGENT="${AGENT:-$ZB_DIR/guest/init}"         # compiled static PID1 binary
 # Default to LOCAL disk, never NFS: CloudLab home dirs (/users, /proj) are NFS,
 # and Firecracker's 512 MB snapshot write to NFS exceeds Zeroboot's 5s socket
 # timeout (-> "os error 11"). /tmp is local on CloudLab images.
-WORKDIR="${WORKDIR:-/tmp/zb-workdir-agent}"
 SIZE_MB="${SIZE_MB:-32}"                      # agent is tiny; 32 MB is plenty
 ROOTFS="$WORKDIR/rootfs.ext4"
 

@@ -1,0 +1,48 @@
+Loading snapshot from /tmp/zb-workdir-agent...
+  Memory: 512 MiB
+  CPU state loaded: RIP=0xffffffff819a220b, RSP=0xffffffff82203e28, CR3=0x38de005
+  MSRs: 7 entries
+  CPUID: 34 entries from Firecracker snapshot
+
+=== Zeroboot Fork Benchmark ===
+
+  Pure mmap CoW (10000 iterations):
+    Min:       1.6 µs (0.002 ms)
+    Avg:       1.8 µs (0.002 ms)
+    P50:       1.6 µs (0.002 ms)
+    P95:       3.0 µs (0.003 ms)
+    P99:       4.8 µs (0.005 ms)
+    Max:     100.2 µs (0.100 ms)
+
+  Full fork (KVM + CoW + CPU restore) (1000 iterations):
+    Min:    2026.8 µs (2.027 ms)
+    Avg:    2355.1 µs (2.355 ms)
+    P50:    2175.6 µs (2.176 ms)
+    P95:    3177.7 µs (3.178 ms)
+    P99:    3193.8 µs (3.194 ms)
+    Max:    3272.5 µs (3.272 ms)
+
+Phase 3: Fork + execute 'echo hello' (100 iterations)...
+  Fork + exec echo (100/100 successful):
+    P50:     4.773 ms
+    P95:     5.799 ms
+    P99:     5.839 ms
+
+Phase 4: Concurrent fork test
+  10 concurrent: 25.1ms total, 2511.9µs/fork, RSS: 3.8MB (386.0KB/fork)
+  100 concurrent: 212.2ms total, 2122.2µs/fork, RSS: 9.5MB (96.8KB/fork)
+  1000 concurrent: 2789.5ms total, 2789.5µs/fork, RSS: 66.8MB (68.4KB/fork)
+
+Phase 5: Memory isolation test
+  PASS: Isolation verified (Fork B reads 0x0, not secret 0xdeadbeefcafebabe)
+  PASS: Bidirectional isolation OK
+
+=== Comparison Table ===
+| Metric               |     Zeroboot |          E2B | microsandbox |      Daytona |
+|----------------------|--------------|--------------|--------------|--------------|
+| Spawn latency p50    |     2.176ms |      ~150ms |      ~200ms |       ~27ms |
+| Spawn latency p99    |     3.194ms |      ~300ms |      ~400ms |       ~90ms |
+| Memory per sandbox   |      ~265KB |      ~128MB |       ~50MB |       ~50MB |
+| Max concurrent       |     1000+ |      ~100 |      ~100 |     ~1000 |
+
+Speedup vs Daytona: 12x faster

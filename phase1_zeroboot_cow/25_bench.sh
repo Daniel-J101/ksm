@@ -14,9 +14,7 @@
 #   sudo bash 25_bench.sh
 set -euo pipefail
 
-ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
-WORKDIR="${WORKDIR:-/tmp/zb-workdir-agent}"   # LOCAL disk, not NFS
-ZB="$ZB_DIR/target/release/zeroboot"
+source "$(cd "$(dirname "$0")" && pwd)/../env.sh"   # ZB_DIR, WORKDIR, ZB defaults
 HERE="$(cd "$(dirname "$0")" && pwd)"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 OUT="$HERE/results/bench-$STAMP.txt"
@@ -24,6 +22,10 @@ OUT="$HERE/results/bench-$STAMP.txt"
 test -x "$ZB" || { echo "build zeroboot first (00_provision.sh)"; exit 1; }
 test -f "$WORKDIR/snapshot/mem" || { echo "no snapshot in $WORKDIR (run 20_make_template.sh)"; exit 1; }
 mkdir -p "$HERE/results"
+
+# Each fork holds a KVM VM fd + vCPU fd(s) (+ eventfds); the 1000-concurrent
+# test blows past the default 1024 fd soft limit (EMFILE, os error 24).
+ulimit -n "${NOFILE:-65536}" 2>/dev/null || ulimit -n "$(ulimit -Hn)"
 
 snap_mib=$(( $(stat -c%s "$WORKDIR/snapshot/mem") / 1024 / 1024 ))
 echo "snapshot = ${snap_mib} MiB   (naive no-CoW: 1000 forks would need $((snap_mib*1000)) MiB)"
@@ -35,7 +37,8 @@ echo
 
 echo
 echo "================= Phase 1 CoW reading ================="
-echo "Concurrent-fork RSS (should stay ~${snap_mib} MiB as count goes 10 -> 1000):"
+echo "Concurrent-fork RSS (should stay flat and << ${snap_mib} MiB as count goes 10 -> 1000;"
+echo " bench forks never run a vCPU, so only touched snapshot pages are resident):"
 grep -E "concurrent:" "$OUT" | sed 's/^/  /' || echo "  (no concurrent lines -- check $OUT)"
 echo "Isolation:"
 grep -E "Isolation|isolation" "$OUT" | sed 's/^/  /' || echo "  (no isolation lines -- check $OUT)"

@@ -64,6 +64,16 @@ def find_ioapic():
     return hits
 
 
+def cr3_plausible(cr3, cr4):
+    """Mirror of Rust cr3_plausible: page-table base (bits 12..51) nonzero,
+    reserved bits 52..63 clear; with CR4.PCIDE (bit 17) the low 12 bits are the
+    PCID (Linux uses nonzero PCIDs), else only PWT|PCD (0x18) may be set."""
+    BASE = 0x000FFFFFFFFFF000
+    if (cr3 & BASE) == 0 or (cr3 & ~(BASE | 0xFFF) & 0xFFFFFFFFFFFFFFFF):
+        return False
+    return bool(cr4 & (1 << 17)) or (cr3 & 0xFFF & ~0x18) == 0
+
+
 def efer_candidates():
     """Same predicate as the Rust find_efer(). NOTE: Python's `&` binds looser
     than `==`/`!=` (the opposite of Rust), so every mixed expression is
@@ -79,10 +89,10 @@ def efer_candidates():
         cr = e + cr_delta
         if cr < 0 or cr + 32 > n:
             continue
-        cr0, cr3 = u64(cr), u64(cr + 16)
+        cr0, cr3, cr4 = u64(cr), u64(cr + 16), u64(cr + 24)
         if (cr0 & 1) == 0 or (cr0 & (1 << 31)) == 0:
             continue
-        if cr3 == 0 or (cr3 & 0xFFF) != 0:
+        if not cr3_plausible(cr3, cr4):
             continue
         out.append(e)
     return out
@@ -114,8 +124,8 @@ if not efer_hits:
             print(f"      derived CR @0x{cr:x}: CR0=0x{cr0:x} CR2=0x{cr2:x} "
                   f"CR3=0x{cr3:x} CR4=0x{cr4:x}")
             print(f"      CR0.PE|PG={'ok' if (cr0 & 1) and (cr0 & (1 << 31)) else 'NO'}"
-                  f"  CR3 aligned/nonzero="
-                  f"{'ok' if cr3 and (cr3 & 0xFFF) == 0 else 'NO'}")
+                  f"  CR3 plausible(PCID-aware)="
+                  f"{'ok' if cr3_plausible(cr3, cr4) else 'NO'}")
         r = e + DELTA["regs"]
         if 0 <= r and r + 144 <= n:
             print(f"      derived RIP @0x{r + 128:x} = 0x{u64(r + 128):x}  "
@@ -185,7 +195,9 @@ ok &= check("APIC base masks to 0xFEE00000", (apic_base_v & 0xFFFFF000) == 0xFEE
             f"0x{apic_base_v:x}")
 ok &= check("CR0.PE and CR0.PG set (paging on)", (cr0 & 1) and (cr0 & (1 << 31)),
             f"0x{cr0:x}")
-ok &= check("CR3 nonzero and 4K-aligned", cr3 != 0 and (cr3 & 0xFFF) == 0, f"0x{cr3:x}")
+ok &= check("CR3 page-table base nonzero (PCID-aware)", cr3_plausible(cr3, cr4),
+            f"0x{cr3:x} base=0x{cr3 & 0x000FFFFFFFFFF000:x} "
+            f"pcid=0x{cr3 & 0xFFF:x} PCIDE={'on' if cr4 & (1 << 17) else 'off'}")
 ok &= check("CR4.PAE set", bool(cr4 & (1 << 5)), f"0x{cr4:x}")
 ok &= check("RIP nonzero", rip != 0, f"0x{rip:x}")
 ok &= check("GDT limit sane (<0x10000)", gdt_lim < 0x10000, f"0x{gdt_lim:x}")

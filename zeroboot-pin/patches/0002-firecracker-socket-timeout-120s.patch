@@ -1,0 +1,22 @@
+diff --git a/src/vmm/firecracker.rs b/src/vmm/firecracker.rs
+index 99df568..26e3215 100644
+--- a/src/vmm/firecracker.rs
++++ b/src/vmm/firecracker.rs
+@@ -6,7 +6,7 @@ use std::path::Path;
+ use std::process::{Child, Command, Stdio};
+ use std::time::{Duration, Instant};
+ 
+-const FC_SOCKET_TIMEOUT: Duration = Duration::from_secs(5);
++const FC_SOCKET_TIMEOUT: Duration = Duration::from_secs(120);
+ 
+ pub struct FirecrackerVm {
+     process: Child,
+@@ -75,7 +75,7 @@ impl FirecrackerVm {
+         // Wait for socket
+         let start = Instant::now();
+         while !Path::new(&socket_path).exists() {
+-            if start.elapsed() > Duration::from_secs(5) {
++            if start.elapsed() > Duration::from_secs(120) {
+                 bail!("Firecracker socket didn't appear");
+             }
+             std::thread::sleep(Duration::from_millis(10));

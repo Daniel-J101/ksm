@@ -1,0 +1,21 @@
+# Shared defaults for every ksm script. Source it; don't execute it.
+#
+#   source "$(dirname "$0")/../env.sh"
+#
+# All values can be overridden from the environment (ZB_DIR=... bash script.sh).
+# Paths are resolved against the *real* user's home even under sudo, so
+# `sudo bash X.sh` and `bash X.sh` see the same zeroboot checkout.
+
+KSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REAL_USER="${SUDO_USER:-$(id -un)}"
+REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
+
+# Zeroboot checkout: pinned upstream + ksm patches, created by
+# zeroboot-pin/setup_zeroboot.sh. Keep it on LOCAL disk, outside ksm (build
+# artifacts and the guest kernel must not land in the shared dev directory).
+: "${ZB_DIR:=$REAL_HOME/zeroboot}"
+# Snapshot workdir: LOCAL disk, never NFS (Firecracker writes the mem file slowly).
+: "${WORKDIR:=/tmp/zb-workdir-agent}"
+ZB="$ZB_DIR/target/release/zeroboot"
+
+export KSM_ROOT REAL_USER REAL_HOME ZB_DIR WORKDIR ZB

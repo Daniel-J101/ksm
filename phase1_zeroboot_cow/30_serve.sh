@@ -9,13 +9,15 @@
 #   sudo BACKGROUND=1 bash 30_serve.sh    # detached; pid in serve.pid
 set -euo pipefail
 
-ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
-WORKDIR="${WORKDIR:-/tmp/zb-workdir-agent}"   # LOCAL disk; Phase 1b snapshot built with init_agentzip
+source "$(cd "$(dirname "$0")" && pwd)/../env.sh"   # ZB_DIR, WORKDIR, ZB defaults
 PORT="${PORT:-8080}"
-ZB="$ZB_DIR/target/release/zeroboot"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 test -x "$ZB" || { echo "build zeroboot first (00_provision.sh)"; exit 1; }
+
+# Every live fork holds KVM VM + vCPU fds; the default 1024 soft limit caps
+# concurrent forks well below what the sweeps can request.
+ulimit -n "${NOFILE:-65536}" 2>/dev/null || ulimit -n "$(ulimit -Hn)"
 
 # No api_keys.json -> auth disabled (fine for a single-tenant benchmark node).
 # To require a key: echo '["zb_live_phase1"]' > api_keys.json and export

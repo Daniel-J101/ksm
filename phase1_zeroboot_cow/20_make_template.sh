@@ -6,22 +6,18 @@
 #   sudo bash 20_make_template.sh
 #   sudo MEM_MIB=1024 bash 20_make_template.sh     # bigger snapshot = more dramatic sharing
 #
-# PREREQ (one-time, in the zeroboot source): raise FC_SOCKET_TIMEOUT. Firecracker's
-# Full snapshot is a dev-preview path that writes the mem file at ~80 MB/s
-# (measured: 256 MB -> 3.2 s, so 512 MB -> ~6.4 s). Zeroboot's hardcoded 5 s
-# socket timeout then trips as "os error 11" (EAGAIN). Fix once:
-#   sudo sed -i 's/from_secs(5)/from_secs(120)/g' $ZB_DIR/src/vmm/firecracker.rs
-#   (rebuild: sudo bash -lc 'source $HOME/.cargo/env; cd $ZB_DIR && cargo build --release')
+# Zeroboot's hardcoded 5 s Firecracker socket timeout is too short for the Full
+# snapshot write (~80 MB/s, so 512 MB ~ 6.4 s -> "os error 11" EAGAIN). The ksm
+# patch zeroboot-pin/patches/0002-firecracker-socket-timeout-120s.patch raises
+# it; setup_zeroboot.sh applies it.
 set -euo pipefail
 
-ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
-KERNEL="${KERNEL:-$ZB_DIR/guest/vmlinux-fc}"   # ships in the repo
-WORKDIR="${WORKDIR:-/tmp/zb-workdir-agent}"   # LOCAL disk, not NFS (see 10_build_agent_rootfs.sh)
+source "$(cd "$(dirname "$0")" && pwd)/../env.sh"   # ZB_DIR, WORKDIR, ZB defaults
+KERNEL="${KERNEL:-$ZB_DIR/guest/vmlinux-fc}"   # fetched by setup_zeroboot.sh (sha256-pinned)
 ROOTFS="${ROOTFS:-$WORKDIR/rootfs.ext4}"
 WAIT_SECS="${WAIT_SECS:-5}"                     # agent reaches idle in <1s; 5 is safe
 INIT_PATH="${INIT_PATH:-/init}"                 # our PID1 is the compiled agent, NOT /init.py
 MEM_MIB="${MEM_MIB:-512}"                        # snapshot RAM; naive no-CoW cost per fork
-ZB="$ZB_DIR/target/release/zeroboot"
 
 test -x "$ZB"     || { echo "build zeroboot first (00_provision.sh)"; exit 1; }
 test -f "$KERNEL" || { echo "missing kernel $KERNEL"; exit 1; }

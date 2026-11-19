@@ -1,0 +1,3 @@
+Loading snapshot from /tmp/zb-workdir-agent...
+  Memory: 512 MiB
+Error: cannot detect vmstate layout: IOAPIC base address 0xFEC00000 not found

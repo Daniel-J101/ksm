@@ -1,0 +1,14 @@
+# Pinned zeroboot source. setup_zeroboot.sh reads these KEY=VALUE lines.
+ZB_REPO=https://github.com/zerobootdev/zeroboot.git
+ZB_COMMIT=d97720e32e320d37b04e268fdfb53bbaf8a8366f
+
+# Guest kernel. NOT in the zeroboot repo (guest/vmlinux-fc is gitignored);
+# it is Firecracker's CI kernel 6.1.128 for v1.12.
+KERNEL_URL=https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.12/x86_64/vmlinux-6.1.128
+KERNEL_SHA256=27a8310b9a727517e9eb02044524b6ceb77de5728e3491b6974d5c846227ecc8
+
+# Firecracker: MUST be v1.12.0 (snapshot layout the parser was written against).
+FC_VERSION=v1.12.0
+
+# Rust toolchain the pinned tree was built and benchmarked with.
+RUST_TOOLCHAIN=1.100.0
