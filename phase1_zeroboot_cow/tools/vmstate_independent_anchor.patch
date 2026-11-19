@@ -12,10 +12,10 @@ index dc79bdc..42c330c 100644
  ### Security
  - TODO: entropy handling changes and what remains the user's responsibility (userspace PRNG reseeding).
 diff --git a/src/vmm/vmstate.rs b/src/vmm/vmstate.rs
-index af66370..4768a98 100644
+index af66370..9928a63 100644
 --- a/src/vmm/vmstate.rs
 +++ b/src/vmm/vmstate.rs
-@@ -1,10 +1,19 @@
+@@ -1,10 +1,20 @@
  use anyhow::{bail, Result};
  use kvm_bindings::*;
  
@@ -36,10 +36,11 @@ index af66370..4768a98 100644
 +// Everything from LAPIC..XSAVE is one rigid kvm-vcpu struct, so once EFER is
 +// located the rest follow at the fixed intra-block deltas below (which, unlike
 +// the absolute positions, are stable across builds).
++#[allow(dead_code)] // kept for documentation; IOAPIC is found by constant search
  const REF_IOAPIC: usize = 0x0591;
  const REF_LAPIC: usize = 0x2541;
  const REF_REGS: usize = 0x2955;
-@@ -17,6 +26,22 @@ const REF_APIC_BASE: usize = 0x2AFD;
+@@ -17,6 +27,22 @@ const REF_APIC_BASE: usize = 0x2AFD;
  const REF_XCRS: usize = 0x2B75;
  const REF_XSAVE: usize = 0x2D0D;
  
@@ -62,7 +63,7 @@ index af66370..4768a98 100644
  pub struct ParsedVmState {
      pub regs: kvm_regs,
      pub sregs: kvm_sregs,
-@@ -28,45 +53,115 @@ pub struct ParsedVmState {
+@@ -28,45 +54,115 @@ pub struct ParsedVmState {
      pub cpuid_entries: Vec<kvm_cpuid_entry2>,
  }
  
@@ -202,7 +203,7 @@ index af66370..4768a98 100644
          cpuid_entries: parse_cpuid(data),
      })
  }
-@@ -122,14 +217,8 @@ fn parse_seg(d: &[u8], o: usize) -> kvm_segment {
+@@ -122,14 +218,8 @@ fn parse_seg(d: &[u8], o: usize) -> kvm_segment {
      }
  }
  
@@ -219,7 +220,7 @@ index af66370..4768a98 100644
      let mut s = kvm_sregs::default();
      s.cs = parse_seg(d, segs);
      s.ds = parse_seg(d, segs + 24);
-@@ -140,21 +229,21 @@ fn parse_sregs(d: &[u8], shift: isize) -> kvm_sregs {
+@@ -140,21 +230,21 @@ fn parse_sregs(d: &[u8], shift: isize) -> kvm_sregs {
      s.tr = parse_seg(d, segs + 144);
      s.ldt = parse_seg(d, segs + 168);
      s.gdt = kvm_dtable {

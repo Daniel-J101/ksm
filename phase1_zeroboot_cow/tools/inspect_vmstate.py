@@ -65,22 +65,24 @@ def find_ioapic():
 
 
 def efer_candidates():
-    """Same predicate as the Rust find_efer()."""
+    """Same predicate as the Rust find_efer(). NOTE: Python's `&` binds looser
+    than `==`/`!=` (the opposite of Rust), so every mixed expression is
+    parenthesised explicitly -- do not remove these parens."""
     cr_delta = DELTA["cr"]  # -0x28
     out = []
     for e in range(n - 16):
         efer = u64(e)
         if efer not in (0xD01, 0x501):
             continue
-        if u64(e + 8) & 0xFFFFF000 != 0xFEE00000:
+        if (u64(e + 8) & 0xFFFFF000) != 0xFEE00000:
             continue
         cr = e + cr_delta
         if cr < 0 or cr + 32 > n:
             continue
         cr0, cr3 = u64(cr), u64(cr + 16)
-        if cr0 & 1 == 0 or cr0 & (1 << 31) == 0:
+        if (cr0 & 1) == 0 or (cr0 & (1 << 31)) == 0:
             continue
-        if cr3 == 0 or cr3 & 0xFFF != 0:
+        if cr3 == 0 or (cr3 & 0xFFF) != 0:
             continue
         out.append(e)
     return out
@@ -99,12 +101,27 @@ if not io_hits:
 
 if not efer_hits:
     print("FAIL: no EFER/vCPU anchor (EFER + APIC-base + CR0/CR3) found.")
-    print("  Loosen the predicate below and inspect by hand.")
+    print("  Raw EFER-valued u64s and what the derived fields would be for each:")
     efer_any = [i for i in range(n - 8) if u64(i) in (0xD01, 0x501)]
-    print(f"\n  raw EFER-valued u64s (0xD01/0x501) at: {[hex(x) for x in efer_any]}")
     for e in efer_any:
         apic = u64(e + 8) if e + 16 <= n else 0
-        print(f"    @0x{e:x}: next u64 = 0x{apic:x} (need &0xfffff000 == 0xfee00000)")
+        apic_ok = (apic & 0xFFFFF000) == 0xFEE00000
+        print(f"\n  @0x{e:x}: EFER=0x{u64(e):x}  apic_base(+8)=0x{apic:x} "
+              f"[{'ok' if apic_ok else 'NO'}]")
+        cr = e + DELTA["cr"]
+        if 0 <= cr and cr + 32 <= n:
+            cr0, cr2, cr3, cr4 = u64(cr), u64(cr + 8), u64(cr + 16), u64(cr + 24)
+            print(f"      derived CR @0x{cr:x}: CR0=0x{cr0:x} CR2=0x{cr2:x} "
+                  f"CR3=0x{cr3:x} CR4=0x{cr4:x}")
+            print(f"      CR0.PE|PG={'ok' if (cr0 & 1) and (cr0 & (1 << 31)) else 'NO'}"
+                  f"  CR3 aligned/nonzero="
+                  f"{'ok' if cr3 and (cr3 & 0xFFF) == 0 else 'NO'}")
+        r = e + DELTA["regs"]
+        if 0 <= r and r + 144 <= n:
+            print(f"      derived RIP @0x{r + 128:x} = 0x{u64(r + 128):x}  "
+                  f"RSP = 0x{u64(r + 48):x}")
+    print("\n  If the EFER+apic pair is right (ok) but CR looks wrong, the CR delta")
+    print("  for this build differs from the reference -- paste this output back.")
     sys.exit(1)
 
 ioapic = io_hits[0]
@@ -164,17 +181,17 @@ def check(name, cond, detail=""):
 print("\nValidation:")
 ok = True
 ok &= check("EFER is a long-mode value", efer_v in (0xD01, 0x501), f"0x{efer_v:x}")
-ok &= check("APIC base masks to 0xFEE00000", apic_base_v & 0xFFFFF000 == 0xFEE00000,
+ok &= check("APIC base masks to 0xFEE00000", (apic_base_v & 0xFFFFF000) == 0xFEE00000,
             f"0x{apic_base_v:x}")
-ok &= check("CR0.PE and CR0.PG set (paging on)", cr0 & 1 and cr0 & (1 << 31),
+ok &= check("CR0.PE and CR0.PG set (paging on)", (cr0 & 1) and (cr0 & (1 << 31)),
             f"0x{cr0:x}")
-ok &= check("CR3 nonzero and 4K-aligned", cr3 != 0 and cr3 & 0xFFF == 0, f"0x{cr3:x}")
+ok &= check("CR3 nonzero and 4K-aligned", cr3 != 0 and (cr3 & 0xFFF) == 0, f"0x{cr3:x}")
 ok &= check("CR4.PAE set", bool(cr4 & (1 << 5)), f"0x{cr4:x}")
 ok &= check("RIP nonzero", rip != 0, f"0x{rip:x}")
 ok &= check("GDT limit sane (<0x10000)", gdt_lim < 0x10000, f"0x{gdt_lim:x}")
 ok &= check("IDT limit sane (<0x10000)", idt_lim < 0x10000, f"0x{idt_lim:x}")
 # Soft check: KVM LAPIC version is 0x14. Reported, not fatal.
-check("LAPIC version low byte == 0x14 (soft)", lapic_ver & 0xFF == 0x14,
+check("LAPIC version low byte == 0x14 (soft)", (lapic_ver & 0xFF) == 0x14,
       f"0x{lapic_ver & 0xff:x}")
 ok &= off["xsave"] + 4 <= n
 
