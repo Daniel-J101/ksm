@@ -1,0 +1,124 @@
+{
+  "when_utc": "20261119-133751",
+  "n": 8,
+  "touch_mb": 64,
+  "hold_s": 30.0,
+  "ideal_saving_MB": 448,
+  "pass": true,
+  "conditions": {
+    "D": {
+      "condition": "D",
+      "ksm_on": false,
+      "mergeable": true,
+      "content": "same",
+      "forks_ok": 8,
+      "ksm_saved_MB": 0.0,
+      "ksm_pages_shared": 0.0,
+      "serve_ksm_merging_pages": 0.0,
+      "steady_Pss_MB": 538.8,
+      "serve_added_MB": 604.72,
+      "result_file": "results/cow-20261119-133535-touch64-same-ksmoff-merge1-gateD.json"
+    },
+    "A": {
+      "condition": "A",
+      "ksm_on": true,
+      "mergeable": false,
+      "content": "same",
+      "forks_ok": 8,
+      "ksm_saved_MB": 0.0,
+      "ksm_pages_shared": 0.0,
+      "serve_ksm_merging_pages": 0.0,
+      "steady_Pss_MB": 538.8,
+      "serve_added_MB": 604.66,
+      "result_file": "results/cow-20261119-133620-touch64-same-ksmon-merge0-gateA.json"
+    },
+    "B": {
+      "condition": "B",
+      "ksm_on": true,
+      "mergeable": true,
+      "content": "same",
+      "forks_ok": 8,
+      "ksm_saved_MB": 458.27,
+      "ksm_pages_shared": 16766.3,
+      "serve_ksm_merging_pages": 134083.9,
+      "steady_Pss_MB": 80.6,
+      "serve_added_MB": 604.45,
+      "result_file": "results/cow-20261119-133706-touch64-same-ksmon-merge1-gateB.json"
+    },
+    "C": {
+      "condition": "C",
+      "ksm_on": true,
+      "mergeable": true,
+      "content": "unique",
+      "forks_ok": 8,
+      "ksm_saved_MB": 10.31,
+      "ksm_pages_shared": 388.6,
+      "serve_ksm_merging_pages": 3027.5,
+      "steady_Pss_MB": 528.6,
+      "serve_added_MB": 604.82,
+      "result_file": "results/cow-20261119-133751-touch64-unique-ksmon-merge1-gateC.json"
+    }
+  },
+  "checks": [
+    {
+      "name": "all forks completed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "D: KSM off merges nothing",
+      "pass": true,
+      "detail": "0.0 MiB"
+    },
+    {
+      "name": "A: without MADV_MERGEABLE nothing merges",
+      "pass": true,
+      "detail": "0.0 MiB"
+    },
+    {
+      "name": "B: identical pages merge ~(N-1)*touch",
+      "pass": true,
+      "detail": "458.27 MiB vs ideal 448 MiB"
+    },
+    {
+      "name": "B: serve Pss drops by about the same amount",
+      "pass": true,
+      "detail": "Pss D-B = 458.2 MiB"
+    },
+    {
+      "name": "C: unique pages don't merge (touched region)",
+      "pass": true,
+      "detail": "10.31 MiB (B=458.27)"
+    }
+  ],
+  "ksm_status_after": {
+    "advisor_max_cpu": 70,
+    "advisor_max_pages_to_scan": 30000,
+    "advisor_min_pages_to_scan": 500,
+    "advisor_mode": "[none] scan-time",
+    "advisor_target_scan_time": 200,
+    "full_scans": 0,
+    "general_profit": 0,
+    "ksm_zero_pages": 0,
+    "max_page_sharing": 256,
+    "merge_across_nodes": 1,
+    "pages_scanned": 19919716,
+    "pages_shared": 0,
+    "pages_sharing": 0,
+    "pages_skipped": 32317636,
+    "pages_to_scan": 10000,
+    "pages_unshared": 0,
+    "pages_volatile": 0,
+    "run": 0,
+    "sleep_millisecs": 20,
+    "smart_scan": 1,
+    "stable_node_chains": 0,
+    "stable_node_chains_prune_millisecs": 2000,
+    "stable_node_dups": 0,
+    "use_zero_pages": 0,
+    "thp_enabled": "always [madvise] never",
+    "thp_shmem_enabled": "always within_size advise [never] deny force",
+    "thp_defrag": "always defer defer+madvise [madvise] never"
+  },
+  "uname": "6.18.0-061800-generic"
+}

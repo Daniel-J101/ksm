@@ -4,7 +4,7 @@
  * be made to dirty memory or stay resident on demand. For a CoW-under-execution
  * proof we add one builtin:
  *
- *     work <mb> <spins>
+ *     work <mb> <spins> [seed]
  *        1. mmap <mb> MiB of ANONYMOUS memory and touch every page -> this
  *           dirties guest-physical pages, which forces host copy-on-write on the
  *           fork's MAP_PRIVATE snapshot mapping -> ~<mb> MiB of PRIVATE host RSS.
@@ -13,6 +13,12 @@
  *           run_until_marker treats HLT-with-no-input as "done" and tears the
  *           fork down (kvm.rs). Busy spin keeps the vCPU running so the exec
  *           request (hence the fork) stays alive for the whole measurement.
+ *
+ *        [seed] picks page CONTENT (for the KSM gate):
+ *           0 / omitted -> page k holds (k, MAGIC): distinct within a fork,
+ *                          IDENTICAL across forks -> only cross-fork merging.
+ *           nonzero     -> 16 seed-dependent bytes per page: unique per fork
+ *                          (pass a different seed per fork) -> KSM can't merge.
  *
  * The retained allocation is intentionally never freed so pages stay resident
  * until the VM is dropped. Keep <mb> well under the snapshot's mem_mib or the
@@ -72,17 +78,28 @@ static void eval_builtin(const char *cmd) {
         return;
     }
 
-    /* work <mb> <spins> */
+    /* work <mb> <spins> [seed] */
     if (strncmp(cmd, "work ", 5) == 0) {
         char *end;
         long mb = strtol(cmd + 5, &end, 10);
         long spins = strtol(end, &end, 10);
+        unsigned long seed = strtoul(end, &end, 10);   /* 0 if absent */
         if (mb > 0) {
             size_t n = (size_t)mb * 1024 * 1024;
             char *buf = mmap(NULL, n, PROT_READ | PROT_WRITE,
                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
             if (buf != MAP_FAILED) {
-                for (size_t i = 0; i < n; i += 4096) buf[i] = (char)(i >> 12);
+                for (size_t i = 0; i < n; i += 4096) {
+                    if (seed == 0) {
+                        unsigned long *w = (unsigned long *)(buf + i);
+                        w[0] = i >> 12;                         /* same in every fork */
+                        w[1] = 0xA6E27215A6E27215UL;
+                    } else {
+                        unsigned long *w = (unsigned long *)(buf + i);
+                        w[0] = seed;                            /* unique per fork */
+                        w[1] = (seed * 0x9E3779B97F4A7C15UL) ^ (i >> 12);
+                    }
+                }
                 g_hold = buf; g_hold_n = n;   /* retain */
             } else {
                 serial_puts("work: mmap failed\n");

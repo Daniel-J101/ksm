@@ -6,7 +6,9 @@
 # BACKGROUND=1 to detach and write a pidfile.
 #
 #   sudo bash 30_serve.sh                 # foreground
-#   sudo BACKGROUND=1 bash 30_serve.sh    # detached; pid in serve.pid
+#   sudo BACKGROUND=1 bash 30_serve.sh    # detached; pid/log in $WORKDIR/serve.{pid,log}
+#   sudo bash 30_serve.sh stop            # stop the detached server
+#   sudo ZEROBOOT_KSM_MERGEABLE=1 BACKGROUND=1 bash 30_serve.sh   # forks KSM-scannable
 set -euo pipefail
 
 source "$(cd "$(dirname "$0")" && pwd)/../env.sh"   # ZB_DIR, WORKDIR, ZB defaults
@@ -24,14 +26,31 @@ ulimit -n "${NOFILE:-65536}" 2>/dev/null || ulimit -n "$(ulimit -Hn)"
 # ZEROBOOT_API_KEYS_FILE + ZEROBOOT_API_KEY.
 export ZEROBOOT_API_KEYS_FILE="${ZEROBOOT_API_KEYS_FILE:-$HERE/api_keys.json}"
 
-echo "serving $WORKDIR on 127.0.0.1:$PORT"
+[ "$(id -u)" = 0 ] || { echo "run with sudo: sudo bash $0"; exit 1; }
+# pid/log live next to the snapshot (local disk), not in the shared ksm dir.
+PIDF="$WORKDIR/serve.pid"; LOG="$WORKDIR/serve.log"
+
+if [ "${1:-}" = stop ]; then
+    if [ -f "$PIDF" ] && kill "$(cat "$PIDF")" 2>/dev/null; then
+        echo "stopped serve pid $(cat "$PIDF")"; rm -f "$PIDF"
+    else
+        echo "no running serve recorded in $PIDF"
+    fi
+    exit 0
+fi
+
+# ZEROBOOT_KSM_MERGEABLE=1 (patch 0003) makes every fork mapping KSM-scannable.
+# Exported here because we run the binary directly (a nested sudo would drop it).
+export ZEROBOOT_KSM_MERGEABLE="${ZEROBOOT_KSM_MERGEABLE:-0}"
+
+echo "serving $WORKDIR on 127.0.0.1:$PORT  (KSM_MERGEABLE=$ZEROBOOT_KSM_MERGEABLE)"
 if [ "${BACKGROUND:-0}" = "1" ]; then
-    nohup sudo "$ZB" serve "$WORKDIR" "$PORT" >"$HERE/serve.log" 2>&1 &
-    echo $! > "$HERE/serve.pid"
-    sleep 2
-    echo "pid $(cat "$HERE/serve.pid")  log $HERE/serve.log"
-    curl -s "localhost:$PORT/v1/health" | (jq . 2>/dev/null || cat) || \
-        echo "health not ready yet; tail $HERE/serve.log"
+    nohup "$ZB" serve "$WORKDIR" "$PORT" >"$LOG" 2>&1 &
+    echo $! > "$PIDF"
+    for _ in $(seq 1 50); do curl -sf "localhost:$PORT/v1/health" >/dev/null && break; sleep 0.2; done
+    echo "pid $(cat "$PIDF")  log $LOG"
+    curl -s "localhost:$PORT/v1/health" | (jq -c . 2>/dev/null || cat) || \
+        echo "health not ready yet; tail $LOG"
 else
-    exec sudo "$ZB" serve "$WORKDIR" "$PORT"
+    exec "$ZB" serve "$WORKDIR" "$PORT"
 fi

@@ -14,6 +14,7 @@ Zeroboot small enough to review and diff against upstream.
 | `UPSTREAM` | repo URL + pinned commit, guest-kernel URL + sha256, Firecracker version, Rust toolchain |
 | `patches/0001-vmstate-independent-anchor-pcid.patch` | `parse_vmstate` anchors the IOAPIC and vCPU blocks independently by content, with a PCID-aware CR3 check (+ CHANGELOG entry). Without it, `bench`/`serve` fail to load the snapshot. |
 | `patches/0002-firecracker-socket-timeout-120s.patch` | Firecracker API socket timeout 5 s → 120 s, so ≥ 400 MB snapshots don't fail with `os error 11`. |
+| `patches/0003-ksm-mergeable-forks.patch` | `ZEROBOOT_KSM_MERGEABLE=1` → `madvise(MADV_MERGEABLE)` on every fork mapping. Off by default (upstream behaviour). Without it ksmd never scans fork memory. |
 | `setup_zeroboot.sh` | clone → checkout pin → apply patches (skip if already applied) → fetch + verify kernel → build with pinned Rust → `make guest` |
 
 ## Use
@@ -39,6 +40,7 @@ Edit in `$ZB_DIR`, rebuild, test, then regenerate the patch from the pinned comm
 cd ~/zeroboot
 git diff src/vmm/vmstate.rs CHANGELOG.md > ~/ksm/zeroboot-pin/patches/0001-vmstate-independent-anchor-pcid.patch
 git diff src/vmm/firecracker.rs          > ~/ksm/zeroboot-pin/patches/0002-firecracker-socket-timeout-120s.patch
+git diff src/vmm/kvm.rs                  > ~/ksm/zeroboot-pin/patches/0003-ksm-mergeable-forks.patch
 # a new, unrelated change -> a new numbered patch:
 git diff src/api/handlers.rs             > ~/ksm/zeroboot-pin/patches/0003-<what>.patch
 ```

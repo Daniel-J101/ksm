@@ -36,25 +36,71 @@ overridden per command. Verified end to end from a fresh clone on 2026-11-19.
 
 Bigger snapshot = more dramatic: `sudo MEM_MIB=1024 bash 20_make_template.sh`.
 
-## Optional Phase 1b — CoW *under execution* (forks that dirty memory)
+## Phase 1b — CoW under execution + KSM feasibility gate ✅
 
 `bench` forks never run a vCPU, so they never dirty pages (pure sharing, upper
-bound). To match the paper's regime — forks resident *and* accumulating private
-state — use the patched agent + probe:
+bound). Phase 1b holds forks resident *while they dirty private pages* (the
+paper's regime), then checks that **KSM can merge those pages at all**, which
+everything in Phase 4 depends on.
 
 ```bash
+export WORKDIR=/tmp/zb-workdir-1b     # keep the Phase 1 snapshot separate
 musl-gcc -static -Os -march=x86-64 -mno-avx -mno-avx2 \
-    -o ~/zeroboot/guest/init_agentzip init_agentzip.c          # adds `work <mb> <spins>`
+    -o ~/zeroboot/guest/init_agentzip init_agentzip.c          # adds `work <mb> <spins> [seed]`
 AGENT=~/zeroboot/guest/init_agentzip bash 10_build_agent_rootfs.sh
-sudo bash 20_make_template.sh
-sudo BACKGROUND=1 bash 30_serve.sh
-sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 15 --touch-mb 0    # sharing
-sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 15 --touch-mb 50   # private growth
+sudo -E bash 20_make_template.sh
+python3 tools/inspect_vmstate.py $WORKDIR/snapshot/vmstate
+
+# CoW under execution, KSM off
+sudo bash ../tools/ksm_ctl.sh off
+sudo -E BACKGROUND=1 bash 30_serve.sh
+sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 15 --spins 7000000000 --touch-mb 0
+sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 15 --spins 7000000000 --touch-mb 50
+sudo -E bash 30_serve.sh stop
+
+# KSM gate (restarts serve itself for each condition; ~3 min)
+sudo -E python3 45_ksm_gate.py          # --n 8 --touch-mb 64 --hold 30 by default
 ```
 
-`--touch-mb 0` → serve RSS barely moves (forks share the snapshot). `--touch-mb 50`
-→ per-fork private ≈ 50 MiB: private memory tracks **touched bytes, not snapshot
-size**. Results in `results/cow-*.json|csv`.
+**Why the KSM gate matters.** Fork memory is `mmap(MAP_PRIVATE)` of the snapshot
+memfd, and ksmd only scans VMAs marked `MADV_MERGEABLE`, which upstream Zeroboot
+never sets. Before patch `0003`, turning KSM on did nothing to sandboxes.
+`ZEROBOOT_KSM_MERGEABLE=1` (passed through by `30_serve.sh`) enables it.
+
+`work <mb> <spins> [seed]`: seed `0` writes pages that are distinct within a
+fork but **identical across forks**, so only cross-fork merging can happen. A
+nonzero seed (the probe's `--content unique` passes fork index + 1) makes every
+fork's pages different.
+
+### Results (2026-11-19, 512 MiB snapshot, E5-2683 v3, host 6.18)
+
+CoW, KSM off (`results/cow-20261119-1332*`, `-1334*`): each fork owns ≈ 9 MiB
+(guest-kernel dirtying during an exec) **plus exactly what it touches**
+(touch 50 → 60.6 MiB/fork), flat from N=1 to 16. CoW avoids 88–98% of the
+naive `N × 512 MiB`.
+
+KSM gate (`results/ksm-gate-20261119-133751.json`), N=8, 64 MiB/fork, ideal
+saving (N−1)×64 = 448 MiB:
+
+| | KSM | `MADV_MERGEABLE` | content | saved (`pages_sharing`) |
+|---|---|---|---|---|
+| D | off | yes | same | 0 MiB |
+| A | on | **no** (upstream) | same | **0 MiB** |
+| B | on | yes | same | **458 MiB** (102% of ideal; Pss drop 458 MiB) |
+| C | on | yes | unique | 10 MiB |
+
+- B goes above 100% because ~10 MiB of guest-kernel pages are also identical
+  across forks; C shows that same 10 MiB.
+- The serve process's **Pss drop equals `pages_sharing`**, so Pss is a sound
+  sandbox-owned-memory metric with KSM on (RSS does not drop: a merged page is
+  still mapped by every fork).
+- **Convergence:** with `ksm_ctl.sh on` defaults (`pages_to_scan=10000`,
+  `sleep_millisecs=20`) KSM reached steady state within the 3 s ramp. This
+  image boots with 100 pages / 200 ms (≈ 2 MB/s), which would need minutes for
+  the same 450 MiB. Scan rate is a first-class knob for Phase 4.
+
+`MemAvailable` deltas (`used+` in probe output) swing by ±100s of MiB from
+unrelated host activity at this scale. Use the smaps and KSM counters instead.
 
 ## What the source actually says (and why the earlier plan changed)
 
@@ -69,8 +115,8 @@ Reading `../../zeroboot/src`:
    paper / managed `api.zeroboot.dev` is **not in the public repo.** So:
    - Phase 1 (a *memory* proof) needs no Python → **minimal agent rootfs**, not a
      baked R2E repo. (R2E baking waits for a real workload agent in a later phase.)
-   - `40_cow_probe.py` needs the Phase 1b agent (`init_agentzip.c`); against the
-     stock agent it can't hold a fork or dirty memory — use `25_bench.sh` there.
+   - `40_cow_probe.py` / `45_ksm_gate.py` need the Phase 1b agent (`init_agentzip.c`);
+     against the stock agent they can't hold a fork or dirty memory.
 3. **A fork lives for exactly one `/v1/exec`** — `execute_code` forks, sends the
    command, waits for `ZEROBOOT_DONE`, then drops (munmaps) the VM
    ([handlers.rs:328-416](../../zeroboot/src/api/handlers.rs#L328)). To hold N

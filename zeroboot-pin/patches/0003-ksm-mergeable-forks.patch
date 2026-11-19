@@ -1,0 +1,38 @@
+diff --git a/src/vmm/kvm.rs b/src/vmm/kvm.rs
+index e90d0a0..e91aa1a 100644
+--- a/src/vmm/kvm.rs
++++ b/src/vmm/kvm.rs
+@@ -9,6 +9,16 @@ use super::serial::Serial;
+ 
+ extern "C" fn noop_signal_handler(_: libc::c_int) {}
+ 
++/// ZEROBOOT_KSM_MERGEABLE=1 -> madvise(MADV_MERGEABLE) every fork mapping (read once).
++fn ksm_mergeable() -> bool {
++    static FLAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *FLAG.get_or_init(|| {
++        let on = std::env::var("ZEROBOOT_KSM_MERGEABLE").map(|v| v == "1").unwrap_or(false);
++        if on { eprintln!("KSM: fork mappings will be madvise(MADV_MERGEABLE)"); }
++        on
++    })
++}
++
+ const COM1_PORT: u16 = 0x3f8;
+ const COM1_PORT_END: u16 = 0x3ff;
+ const COM1_IRQ: u32 = 4;
+@@ -74,6 +84,16 @@ impl ForkedVm {
+             bail!("mmap failed: {}", std::io::Error::last_os_error());
+         }
+ 
++        // ksm patch 0003: opt fork memory into KSM. Without MADV_MERGEABLE ksmd
++        // never scans these VMAs, so KSM on/off makes no difference to forks.
++        // Off by default (upstream behaviour); ZEROBOOT_KSM_MERGEABLE=1 enables.
++        if ksm_mergeable() {
++            let rc = unsafe { libc::madvise(fork_mem, snapshot.mem_size, libc::MADV_MERGEABLE) };
++            if rc != 0 {
++                eprintln!("warning: madvise(MADV_MERGEABLE) failed: {}", std::io::Error::last_os_error());
++            }
++        }
++
+         unsafe {
+             vm_fd.set_user_memory_region(kvm_userspace_memory_region {
+                 slot: 0, guest_phys_addr: 0,

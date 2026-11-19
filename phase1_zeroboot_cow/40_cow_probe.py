@@ -20,6 +20,14 @@ sample the serve process's RSS (it runs every fork in-process) and /proc/meminfo
   --touch-mb 0    forks only spin           -> growth ~ 0        (pure sharing)
   --touch-mb 50   each fork dirties 50 MiB  -> growth ~ N x 50   (private CoW)
 
+KSM (Phase 1b gate, see 45_ksm_gate.sh):
+  --content same    every fork writes identical pages  -> KSM can merge (N-1)/N
+  --content unique  per-fork seed, distinct pages      -> KSM can't merge them
+  Each sample also records /sys/kernel/mm/ksm counters and the serve process's
+  /proc/<pid>/ksm_stat. NOTE: RSS does NOT drop when KSM merges (a merged page
+  is still mapped by every fork); the saving shows in pages_sharing, Pss and
+  MemAvailable. Steady-state values = mean of the last third of the hold.
+
 Run ON THE NODE as root (reads the root-owned serve process's smaps):
   sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 15 --touch-mb 0
   sudo python3 40_cow_probe.py --sweep 1,2,4,8,16 --hold 15 --touch-mb 50
@@ -79,6 +87,53 @@ def find_serve_pid(explicit):
     sys.exit("could not find a 'zeroboot serve' process; pass --serve-pid")
 
 
+KSM = "/sys/kernel/mm/ksm"
+
+
+def read_ksm():
+    out = {}
+    for f in ("run", "pages_shared", "pages_sharing", "pages_unshared",
+              "pages_volatile", "full_scans", "ksm_zero_pages", "general_profit"):
+        try:
+            out[f] = int(open(os.path.join(KSM, f)).read().strip())
+        except (OSError, ValueError):
+            pass
+    return out
+
+
+def read_ksm_knobs():
+    out = {}
+    for f in ("run", "pages_to_scan", "sleep_millisecs", "merge_across_nodes",
+              "use_zero_pages", "max_page_sharing", "advisor_mode", "smart_scan"):
+        try:
+            v = open(os.path.join(KSM, f)).read().strip()
+            out[f] = int(v) if v.isdigit() else v
+        except OSError:
+            pass
+    return out
+
+
+def read_ksm_stat(pid):
+    out = {}
+    try:
+        for line in open(f"/proc/{pid}/ksm_stat"):
+            k, _, v = line.partition(" ")
+            out[k.strip()] = int(v.strip().split()[0])
+    except (OSError, ValueError, IndexError):
+        pass
+    return out
+
+
+def serve_env(pid, key):
+    try:
+        for kv in open(f"/proc/{pid}/environ", "rb").read().split(b"\0"):
+            if kv.startswith(key.encode() + b"="):
+                return kv.split(b"=", 1)[1].decode()
+    except OSError:
+        pass
+    return None
+
+
 def http_post(base, path, body, api_key, timeout):
     data = json.dumps(body).encode()
     req = urllib.request.Request(base + path, data=data, method="POST")
@@ -97,9 +152,9 @@ def http_get(base, path, api_key, timeout=10):
         return json.loads(r.read())
 
 
-def hold_fork(base, api_key, touch, spins, timeout, results, idx, barrier):
-    """One concurrent fork held by a `work <mb> <spins>` serial command."""
-    body = {"code": f"work {touch} {spins}", "language": "python",
+def hold_fork(base, api_key, touch, spins, timeout, results, idx, barrier, seed=0):
+    """One concurrent fork held by a `work <mb> <spins> [seed]` serial command."""
+    body = {"code": f"work {touch} {spins} {seed}", "language": "python",
             "timeout_seconds": timeout}
     barrier.wait()
     t0 = time.time()
@@ -112,7 +167,7 @@ def hold_fork(base, api_key, touch, spins, timeout, results, idx, barrier):
         results[idx] = {"ok": False, "error": repr(e), "wall_s": time.time() - t0}
 
 
-def measure_point(base, api_key, pid, n, touch, spins, hold, ramp, settle):
+def measure_point(base, api_key, pid, n, touch, spins, hold, ramp, settle, content="same"):
     results = [None] * n
     barrier = threading.Barrier(n + 1)
     threads = []
@@ -121,7 +176,8 @@ def measure_point(base, api_key, pid, n, touch, spins, hold, ramp, settle):
     for i in range(n):
         t = threading.Thread(target=hold_fork,
                              args=(base, api_key, touch, spins, exec_timeout,
-                                   results, i, barrier))
+                                   results, i, barrier,
+                                   0 if content == "same" else i + 1))
         t.start()
         threads.append(t)
 
@@ -129,12 +185,25 @@ def measure_point(base, api_key, pid, n, touch, spins, hold, ramp, settle):
     time.sleep(ramp)  # let every fork boot, dirty its memory, enter the spin
 
     peak = None
-    deadline = time.time() + hold
+    series = []
+    t_start = time.time()
+    deadline = t_start + hold
     samples = 0
     while time.time() < deadline:
         roll = read_smaps_rollup(pid)
         mi = read_meminfo()
+        ks = read_ksm()
+        kst = read_ksm_stat(pid)
         rss = roll.get("Rss", 0)
+        series.append({"t": round(time.time() - t_start, 2),
+                       "Rss_kB": rss, "Pss_kB": roll.get("Pss", 0),
+                       "Anonymous_kB": roll.get("Anonymous", 0),
+                       "MemAvailable_kB": mi.get("MemAvailable", 0),
+                       "ksm_pages_shared": ks.get("pages_shared"),
+                       "ksm_pages_sharing": ks.get("pages_sharing"),
+                       "ksm_full_scans": ks.get("full_scans"),
+                       "serve_ksm_merging_pages": kst.get("ksm_merging_pages"),
+                       "serve_ksm_rmap_items": kst.get("ksm_rmap_items")})
         if peak is None or rss > peak["serve_Rss_kB"]:
             peak = {
                 "serve_Rss_kB": rss,
@@ -151,7 +220,16 @@ def measure_point(base, api_key, pid, n, touch, spins, hold, ramp, settle):
     time.sleep(settle)
 
     fork_ms = [r.get("fork_time_ms") for r in results if r and r.get("fork_time_ms") is not None]
+    tail = series[-max(1, len(series) // 3):]   # steady state: last third of the hold
+
+    def avg(k):
+        v = [x[k] for x in tail if x.get(k) is not None]
+        return round(sum(v) / len(v), 1) if v else None
+    steady = {f"steady_{k}": avg(k) for k in
+              ("Pss_kB", "Anonymous_kB", "MemAvailable_kB", "ksm_pages_shared",
+               "ksm_pages_sharing", "serve_ksm_merging_pages")}
     return {
+        "content": content, **steady, "series": series,
         "n": n, "samples": samples,
         "forks_ok": sum(1 for r in results if r and r.get("ok")),
         "fork_time_ms_mean": round(sum(fork_ms) / len(fork_ms), 3) if fork_ms else None,
@@ -175,6 +253,10 @@ def main():
     ap.add_argument("--settle", type=float, default=2.0)
     ap.add_argument("--snapshot-mb", type=int, default=0,
                     help="snapshot MiB for the naive baseline (else read from mem file guess)")
+    ap.add_argument("--content", choices=("same", "unique"), default="same",
+                    help="same: identical pages across forks (KSM-mergeable); "
+                         "unique: per-fork seed (not mergeable)")
+    ap.add_argument("--tag", default="", help="extra label for the output filenames")
     ap.add_argument("--outdir", default="results")
     args = ap.parse_args()
 
@@ -196,9 +278,13 @@ def main():
     rows = []
     for n in sweep:
         pt = measure_point(args.base, args.api_key, pid, n, args.touch_mb,
-                           args.spins, args.hold, args.ramp, args.settle)
+                           args.spins, args.hold, args.ramp, args.settle, args.content)
+        sharing = pt.get("steady_ksm_pages_sharing") or 0
+        pt["ksm_saved_MB"] = round(sharing * 4096 / 2**20, 2)
+        pt["ksm_saved_vs_ideal_pct"] = (round(100 * pt["ksm_saved_MB"] / ((n - 1) * args.touch_mb), 1)
+                                        if n > 1 and args.touch_mb else None)
         serve_added_mb = (pt.get("serve_Rss_kB", 0) - base_rss) / 1024.0
-        avail_drop_mb = (base_avail - pt.get("MemAvailable_kB", 0)) / 1024.0
+        avail_drop_mb = (base_avail - (pt.get("steady_MemAvailable_kB") or pt.get("MemAvailable_kB", 0))) / 1024.0
         naive_mb = n * snap_mb
         pt["serve_added_MB"] = round(serve_added_mb, 2)
         pt["mem_used_delta_MB"] = round(avail_drop_mb, 2)
@@ -208,14 +294,20 @@ def main():
         rows.append(pt)
         print(f"N={n:>3}  serve+={serve_added_mb:8.1f} MiB  used+={avail_drop_mb:8.1f} MiB  "
               f"naive={naive_mb:8.0f} MiB  per-fork={pt['per_fork_private_MB']:7.3f} MiB  "
-              f"CoW-saved={pt['cow_sharing_pct']}%  ok={pt['forks_ok']}/{n}")
+              f"CoW-saved={pt['cow_sharing_pct']}%  KSM-saved={pt['ksm_saved_MB']:.1f} MiB "
+              f"({pt['ksm_saved_vs_ideal_pct']}% of (N-1)*touch)  ok={pt['forks_ok']}/{n}")
 
     os.makedirs(args.outdir, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    tag = f"touch{args.touch_mb}"
+    ksm_on = read_ksm_knobs().get("run") == 1
+    mergeable = serve_env(pid, "ZEROBOOT_KSM_MERGEABLE") == "1"
+    tag = (f"touch{args.touch_mb}-{args.content}-ksm{'on' if ksm_on else 'off'}"
+           f"-merge{int(mergeable)}" + (f"-{args.tag}" if args.tag else ""))
     summary = {"when_utc": stamp, "base": args.base, "serve_pid": pid,
                "snapshot_mb": snap_mb, "touch_mb": args.touch_mb, "spins": args.spins,
                "hold_s": args.hold, "baseline_serve_Rss_MB": round(base_rss / 1024, 2),
+               "content": args.content, "serve_ksm_mergeable": mergeable,
+               "ksm_knobs": read_ksm_knobs(), "uname": os.uname().release,
                "points": rows}
     jpath = os.path.join(args.outdir, f"cow-{stamp}-{tag}.json")
     cpath = os.path.join(args.outdir, f"cow-{stamp}-{tag}.csv")
@@ -224,11 +316,13 @@ def main():
     with open(cpath, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["n", "forks_ok", "fork_time_ms_mean", "serve_added_MB",
-                    "mem_used_delta_MB", "naive_nocow_MB", "per_fork_private_MB", "cow_sharing_pct"])
+                    "mem_used_delta_MB", "naive_nocow_MB", "per_fork_private_MB", "cow_sharing_pct",
+                    "ksm_saved_MB", "ksm_saved_vs_ideal_pct", "steady_Pss_kB"])
         for r in rows:
             w.writerow([r["n"], r["forks_ok"], r.get("fork_time_ms_mean"), r["serve_added_MB"],
                         r["mem_used_delta_MB"], r["naive_nocow_MB"], r["per_fork_private_MB"],
-                        r["cow_sharing_pct"]])
+                        r["cow_sharing_pct"], r["ksm_saved_MB"], r["ksm_saved_vs_ideal_pct"],
+                        r.get("steady_Pss_kB")])
 
     if rows:
         top = rows[-1]
