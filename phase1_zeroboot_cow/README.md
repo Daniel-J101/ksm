@@ -91,6 +91,53 @@ Reading `../../zeroboot/src`:
   AgentZip's delta/dictionary codecs target and KSM can't.
 - **Node kernel** `6.8.0-138` is fine (KVM/userfaultfd/KSM present; paper used 5.15).
 
+## Blocker: Zeroboot's vmstate parser doesn't match this build → use `26_cow_mmap_demo.py`
+
+`zeroboot bench`/`serve` first call `load_snapshot` → `parse_vmstate`, a fragile
+byte-scanner whose `REF_*` offsets were reverse-engineered from one specific
+Firecracker+kernel build ([vmstate.rs:4](../../zeroboot/src/vmm/vmstate.rs#L4)).
+On this node's `vmlinux-fc` the sections shifted **independently** (confirmed with
+`tools/inspect_vmstate.py`: IOAPIC base at `0x5a4` vs ref `0x591`, real EFER at
+`0x2640` so IOAPIC→EFER is `0x209c` not the assumed `0x2564`), so its single
+global-shift auto-detect `bail`s with *"IOAPIC base address 0xFEC00000 not
+found"* — the exact "sections shift independently" bug the CHANGELOG lists as
+unfixed. **Changing the Firecracker patch version does not help** (vmstate is the
+same 14677 B under 1.12.0 and 1.12.1).
+
+The parse only matters for *running* the guest (CPU-state restore). The Phase 1
+**memory-sharing** proof is at the `mmap(MAP_PRIVATE)` layer, so `26_cow_mmap_demo.py`
+delivers it directly on the real snapshot without the parser:
+
+```bash
+python3 26_cow_mmap_demo.py --n 16                 # read-only: Pss & physical ~= one snapshot
+python3 26_cow_mmap_demo.py --n 16 --touch-mb 50   # Private_Dirty ~= N x 50 MiB
+python3 26_cow_mmap_demo.py --n 1000 --no-read     # 1000 mappings ~ free (Zeroboot's 265 KB/fork)
+```
+
+Running actual forked VMs (needed for Phase 1b and all later phases) requires
+re-deriving the full `REF_*` table for this build, or anchoring each section
+independently — a separate task (`tools/inspect_vmstate.py` is the start).
+
+## Known issue: raise Zeroboot's socket timeout before step 20
+
+Firecracker's **Full snapshot is a dev-preview path** that writes the mem file at
+~80 MB/s (measured on CloudLab: 256 MB → 3.2 s; 512 MB → ~6.4 s). Zeroboot's
+socket timeout is hardcoded at **5 s** ([firecracker.rs:9](../../zeroboot/src/vmm/firecracker.rs#L9)),
+so any snapshot ≥ ~400 MB fails with `Error: Resource temporarily unavailable
+(os error 11)` — an EAGAIN from the timed-out `stream.read`, not a snapshot
+failure. Fix once in the source and rebuild:
+
+```bash
+sudo sed -i 's/from_secs(5)/from_secs(120)/g' $ZB_DIR/src/vmm/firecracker.rs
+sudo bash -lc 'source $HOME/.cargo/env; cd $ZB_DIR && cargo build --release'
+```
+
+Two more node gotchas: the repo may be **root-owned** (edit/build with `sudo`),
+and CloudLab **home dirs are NFS** — keep `WORKDIR` on local disk (`/tmp`), the
+default here, or snapshot writes are even slower. To see guest boot / Firecracker
+errors during `template`, temporarily make its child stdio inherit:
+`sed -i -e 's/\.stdout(Stdio::null())/.stdout(Stdio::inherit())/' -e 's/\.stderr(Stdio::piped())/.stderr(Stdio::inherit())/' $ZB_DIR/src/vmm/firecracker.rs`.
+
 ## Steps I could not test from the WSL dev box (verify on-node)
 
 - `00`: `make guest` needs `musl-tools`; `make build` needs the Rust toolchain on PATH.

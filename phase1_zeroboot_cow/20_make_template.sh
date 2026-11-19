@@ -5,6 +5,13 @@
 #
 #   sudo bash 20_make_template.sh
 #   sudo MEM_MIB=1024 bash 20_make_template.sh     # bigger snapshot = more dramatic sharing
+#
+# PREREQ (one-time, in the zeroboot source): raise FC_SOCKET_TIMEOUT. Firecracker's
+# Full snapshot is a dev-preview path that writes the mem file at ~80 MB/s
+# (measured: 256 MB -> 3.2 s, so 512 MB -> ~6.4 s). Zeroboot's hardcoded 5 s
+# socket timeout then trips as "os error 11" (EAGAIN). Fix once:
+#   sudo sed -i 's/from_secs(5)/from_secs(120)/g' $ZB_DIR/src/vmm/firecracker.rs
+#   (rebuild: sudo bash -lc 'source $HOME/.cargo/env; cd $ZB_DIR && cargo build --release')
 set -euo pipefail
 
 ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"

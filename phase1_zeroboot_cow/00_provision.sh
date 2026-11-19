@@ -9,7 +9,11 @@
 #   * Firecracker is still needed: `zeroboot template` boots a VM to snapshot it.
 set -euo pipefail
 
-FC_VERSION="${FC_VERSION:-v1.12.1}"          # Firecracker >= 1.12 (per DEPLOYMENT.md)
+# MUST be v1.12.0, NOT "latest 1.12": Zeroboot's vmstate parser (src/vmm/vmstate.rs)
+# is hardcoded to v1.12.0's snapshot byte-layout. v1.12.1 shifts a section and the
+# parser fails with "IOAPIC base address 0xFEC00000 not found". (Deploy doc's
+# "v1.12+" is wrong.)
+FC_VERSION="${FC_VERSION:-v1.12.0}"
 ARCH="$(uname -m)"
 ZB_DIR="${ZB_DIR:-$HOME/zeroboot}"
 
