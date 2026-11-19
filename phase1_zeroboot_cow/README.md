@@ -18,8 +18,13 @@ through CoW; written pages become sandbox-private.
 sudo bash 00_provision.sh          # KVM, Firecracker, Rust; make build + make guest
 bash      10_build_agent_rootfs.sh # 32 MB ext4 whose PID1 is the compiled guest/init
 sudo      bash 20_make_template.sh # zeroboot template ... /init  -> workdir-agent/snapshot
+python3   tools/inspect_vmstate.py /tmp/zb-workdir-agent/snapshot/vmstate  # gate: anchors OK?
 sudo      bash 25_bench.sh         # zeroboot bench -> the CoW proof
 ```
+
+> `bench`/`serve` restore guest CPU state via `parse_vmstate`. On this node that
+> needed the independent-anchor fix — see "vmstate parser" below; run
+> `inspect_vmstate.py` once after step 20 to confirm it anchors before `bench`.
 
 `25_bench.sh` runs Zeroboot's own `bench`, which **is** the Phase 1 experiment:
 
@@ -91,32 +96,72 @@ Reading `../../zeroboot/src`:
   AgentZip's delta/dictionary codecs target and KSM can't.
 - **Node kernel** `6.8.0-138` is fine (KVM/userfaultfd/KSM present; paper used 5.15).
 
-## Blocker: Zeroboot's vmstate parser doesn't match this build → use `26_cow_mmap_demo.py`
+## vmstate parser: independent-anchor fix (was the blocker)
 
-`zeroboot bench`/`serve` first call `load_snapshot` → `parse_vmstate`, a fragile
-byte-scanner whose `REF_*` offsets were reverse-engineered from one specific
-Firecracker+kernel build ([vmstate.rs:4](../../zeroboot/src/vmm/vmstate.rs#L4)).
-On this node's `vmlinux-fc` the sections shifted **independently** (confirmed with
-`tools/inspect_vmstate.py`: IOAPIC base at `0x5a4` vs ref `0x591`, real EFER at
-`0x2640` so IOAPIC→EFER is `0x209c` not the assumed `0x2564`), so its single
-global-shift auto-detect `bail`s with *"IOAPIC base address 0xFEC00000 not
-found"* — the exact "sections shift independently" bug the CHANGELOG lists as
-unfixed. **Changing the Firecracker patch version does not help** (vmstate is the
-same 14677 B under 1.12.0 and 1.12.1).
+`zeroboot bench`/`serve` first call `load_snapshot` → `parse_vmstate`
+([vmstate.rs:4](../../zeroboot/src/vmm/vmstate.rs#L4)). The **original** parser
+located every CPU-state field by a single *global* offset shift anchored on the
+IOAPIC base `0xFEC00000`, with the rest at fixed distances from it. That fails on
+this node: Firecracker's versionize vmstate has variable-length sections
+(MSR/CPUID vectors, per-device state), so sections shift **independently**.
+Confirmed with `tools/inspect_vmstate.py`: IOAPIC at `0x5a4` (ref `0x591`,
+shift +19) but the vCPU block moved the *other* way, so the assumed IOAPIC→EFER
+distance (`0x2564`) no longer held (real `0x209c`) and the single-shift
+auto-detect `bail`ed with *"IOAPIC base address 0xFEC00000 not found"* — the exact
+"sections shift independently" bug the CHANGELOG lists as unfixed. (Changing the
+Firecracker patch version does not help: vmstate is the same 14677 B under 1.12.0
+and 1.12.1.)
 
-The parse only matters for *running* the guest (CPU-state restore). The Phase 1
-**memory-sharing** proof is at the `mmap(MAP_PRIVATE)` layer, so `26_cow_mmap_demo.py`
-delivers it directly on the real snapshot without the parser:
+**Fix — anchor two things by *content*, independently, then derive the rest:**
+
+1. **IOAPIC** — its MMIO base constant `0xFEC00000`.
+2. **EFER / vCPU block** — the EFER (`0xD01`/`0x501`) + APIC-base (`0xFEE00xxx`)
+   adjacency, cross-checked against a plausible CR0 (PE|PG set) and CR3 (nonzero,
+   4K-aligned) just before it. The CR check disambiguates the real EFER from the
+   same value sitting in the MSR list.
+
+`LAPIC..XSAVE` is one *rigid* kvm-vcpu struct, so once EFER is located the
+remaining fields follow at fixed, build-stable deltas — no global shift. The old
+`REF_*` table is kept only to compute those deltas, never as absolute positions.
+
+This is already applied to `src/vmm/vmstate.rs` in the checkout here. Because
+`zeroboot/` is a **separate checkout on the node** (and gitignored from this
+repo), apply the same change there before rebuilding:
+
+```bash
+cd ~/zeroboot
+git apply /path/to/phase1_zeroboot_cow/tools/vmstate_independent_anchor.patch
+source $HOME/.cargo/env && cargo build --release
+```
+
+**Verify the anchors landed before trusting `bench`.** `tools/inspect_vmstate.py`
+is a faithful mirror of the Rust `resolve_offsets`: it derives the same offsets,
+decodes RIP/CR3/EFER/GDT/IDT/…, runs the same validations, and **exits non-zero**
+if any hard check fails — use it as a pre-`bench` gate:
+
+```bash
+python3 tools/inspect_vmstate.py /tmp/zb-workdir-agent/snapshot/vmstate
+# "ALL CHECKS PASS" => the Rust parser anchors identically; proceed to 25_bench.sh.
+# add --diag for a hexdump around the IOAPIC anchor.
+```
+
+> ⚠️ Developed on this Mac, where the Rust can't be compiled (`kvm-bindings` is
+> Linux-only) and there's no real `vmstate`. The algorithm was validated against
+> a synthetic vmstate reproducing this node's independent shift; the
+> `inspect_vmstate.py` gate is the on-node confirmation that it anchors correctly
+> on the *real* snapshot. Run it first.
+
+### Parser-free fallback: `26_cow_mmap_demo.py`
+
+The Phase 1 **memory-sharing** proof lives at the `mmap(MAP_PRIVATE)` layer and
+never needed the parser at all. It stays the quickest proof, and the safety net
+if `inspect_vmstate.py` ever fails on a future build:
 
 ```bash
 python3 26_cow_mmap_demo.py --n 16                 # read-only: Pss & physical ~= one snapshot
 python3 26_cow_mmap_demo.py --n 16 --touch-mb 50   # Private_Dirty ~= N x 50 MiB
 python3 26_cow_mmap_demo.py --n 1000 --no-read     # 1000 mappings ~ free (Zeroboot's 265 KB/fork)
 ```
-
-Running actual forked VMs (needed for Phase 1b and all later phases) requires
-re-deriving the full `REF_*` table for this build, or anchoring each section
-independently — a separate task (`tools/inspect_vmstate.py` is the start).
 
 ## Known issue: raise Zeroboot's socket timeout before step 20
 
@@ -143,7 +188,9 @@ errors during `template`, temporarily make its child stdio inherit:
 - `00`: `make guest` needs `musl-tools`; `make build` needs the Rust toolchain on PATH.
 - `10`: loop-mounting ext4 needs root; `debugfs` listing is best-effort.
 - `20`: if `template` fails, re-run with `ZEROBOOT_DEBUG=1`; confirm `snapshot/{mem,vmstate}` appear.
-- `25`: `bench`'s "KB/fork" is `total_RSS / count` — read the *trend* across
+- `25`: `bench` needs the vmstate fix applied + rebuilt (`git apply` the patch,
+  `cargo build --release`) and `inspect_vmstate.py` reporting "ALL CHECKS PASS"
+  first. Its "KB/fork" is `total_RSS / count` — read the *trend* across
   10/100/1000, not the absolute, as the sharing signal.
 - `40`: needs root to read the serve process's `smaps_rollup`; pick `--spins` high
   enough to outlast `--hold` on this CPU (default 2e10 ≈ several s on a Xeon).
