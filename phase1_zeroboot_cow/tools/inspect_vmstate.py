@@ -207,6 +207,41 @@ check("LAPIC version low byte == 0x14 (soft)", (lapic_ver & 0xFF) == 0x14,
       f"0x{lapic_ver & 0xff:x}")
 ok &= off["xsave"] + 4 <= n
 
+
+# --- MSR chunks (mirror of Rust find_msr_chunks / parse_msrs, ksm patch 0004) ---
+def msr_chunks():
+    """u64 8, u64 n, u64 n, then n x {u64 16, u32 index, u32 0, u64 data}."""
+    rec = lambda o: o + 24 <= n and u64(o) == 16 and u32(o + 12) == 0
+    out, o = [], 0
+    while o + 24 <= n:
+        cnt = u64(o + 8)
+        if u64(o) == 8 and 1 <= cnt <= 1024 and u64(o + 16) == cnt and \
+                all(rec(o + 24 + 24 * k) for k in range(cnt)):
+            out.append((o + 24, cnt))
+            o += 24 + 24 * cnt
+        else:
+            o += 1
+    return out
+
+
+msrs = {}
+chunks = msr_chunks()
+for start, cnt in chunks:
+    for k in range(cnt):
+        e = start + 24 * k + 8
+        msrs.setdefault(u32(e), u64(e + 8))
+tsc, deadline, st = msrs.get(0x10), msrs.get(0x6e0), msrs.get(0x4B564D01)
+print(f"\nMSR chunks: {[(hex(a), c) for a, c in chunks]}  ({len(msrs)} MSRs)")
+print(f"  IA32_TSC = {tsc}   TSC_DEADLINE = {deadline}   KVM_SYSTEM_TIME_NEW = "
+      f"{hex(st) if st is not None else None}")
+ok &= check("MSR array found (>= 8 entries)", sum(c for _, c in chunks) >= 8)
+ok &= check("IA32_TSC present and nonzero (fork clock continuity)", bool(tsc))
+# Soft: an armed deadline should be shortly after the snapshot TSC (< ~10 s).
+check("TSC_DEADLINE just after TSC (soft)",
+      deadline is not None and tsc and (deadline == 0 or 0 <= deadline - tsc < 10 * 3_000_000_000),
+      f"delta={deadline - tsc if deadline and tsc else None} cycles")
+ok &= check("KVM_SYSTEM_TIME_NEW enabled (bit 0)", st is not None and st & 1 == 1)
+
 if DIAG:
     c = ioapic
     lo, hi = max(0, c - 8), min(n, c + 40)

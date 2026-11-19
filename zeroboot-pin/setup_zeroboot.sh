@@ -4,7 +4,7 @@
 #
 # Run as your NORMAL user (not root). 00_provision.sh calls it for you after
 # installing system packages; you can also re-run it on its own at any time.
-# Idempotent: patches that are already applied are skipped, and the kernel is
+# Idempotent: already-applied patches are detected (exact tree match) and skipped; the kernel is
 # only downloaded if it's missing or its checksum is wrong.
 #
 #   bash zeroboot-pin/setup_zeroboot.sh            # ZB_DIR defaults to ~/zeroboot
@@ -40,16 +40,33 @@ if [ "$head" != "$ZB_COMMIT" ]; then
 fi
 
 echo "== patches =="
-for p in "$PIN_DIR"/patches/*.patch; do
-    name="$(basename "$p")"
-    if git apply --reverse --check "$p" 2>/dev/null; then
+# Patches stack (later ones touch code earlier ones added), so "is patch k
+# applied?" can't be checked per patch. Instead compare git trees exactly:
+# build pin+patches[0..k] in a throwaway index for each k and find which one
+# the working tree (tracked files) equals; then apply only the rest.
+patches=("$PIN_DIR"/patches/*.patch)
+tmpidx="$(mktemp)"; trap 'rm -f "$tmpidx"' EXIT
+tree_after() {  # tree of pin + first $1 patches
+    GIT_INDEX_FILE="$tmpidx" git read-tree "$ZB_COMMIT"
+    for ((i = 0; i < $1; i++)); do GIT_INDEX_FILE="$tmpidx" git apply --cached "${patches[$i]}"; done
+    GIT_INDEX_FILE="$tmpidx" git write-tree
+}
+actual="$(GIT_INDEX_FILE="$tmpidx" git read-tree "$ZB_COMMIT" && GIT_INDEX_FILE="$tmpidx" git add -u . && GIT_INDEX_FILE="$tmpidx" git write-tree)"
+have=-1
+for ((k = ${#patches[@]}; k >= 0; k--)); do
+    if [ "$(tree_after $k)" = "$actual" ]; then have=$k; break; fi
+done
+if [ "$have" -lt 0 ]; then
+    echo "FATAL: $ZB_DIR matches no prefix of the ksm patch series -- tree has diverged."
+    echo "       See: git -C $ZB_DIR diff   (or move it aside and re-run)"
+    exit 1
+fi
+for ((i = 0; i < ${#patches[@]}; i++)); do
+    name="$(basename "${patches[$i]}")"
+    if [ "$i" -lt "$have" ]; then
         echo "  already applied: $name"
-    elif git apply --check "$p" 2>/dev/null; then
-        git apply "$p"; echo "  applied:         $name"
     else
-        echo "FATAL: $name neither applies nor is already applied -- tree has diverged."
-        echo "       See: git -C $ZB_DIR diff"
-        exit 1
+        git apply "${patches[$i]}"; echo "  applied:         $name"
     fi
 done
 

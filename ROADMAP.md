@@ -68,6 +68,7 @@ identical pages); 0 without the patch; serve Pss drop = `pages_sharing`. See
   stop and rethink before Phase 2.
 
 ### Phase 2 — Persistent, code-running sandboxes (largest engineering step)
+**Detailed plan: [`phase2_sandbox/PLAN.md`](phase2_sandbox/PLAN.md)** (supersedes the bullets below where they differ).
 - **Zeroboot patch `0004-persistent-sandboxes`:**
   - `POST /v1/sandboxes` forks and keeps the VM; `POST /v1/sandboxes/{id}/exec`;
     `DELETE /v1/sandboxes/{id}`.
@@ -88,6 +89,11 @@ identical pages); 0 without the patch; serve Pss drop = `pages_sharing`. See
   image.
 
 ### Phase 3 — Record traces once with DeepSeek
+**Changed 2026-11-19 (agreed):** record with R2E-Gym's own **docker** runtime,
+unmodified; replay the (think time, command) pairs into Zeroboot sandboxes built
+from the same image. R2E-Gym already logs `llm_exec_time` per step and each
+action is one bash command. Phase 3 no longer waits on Phase 2. The bullets
+below that say "runtime backend pointed at our sandbox API" are superseded.
 - Use R2E-Gym's agent scaffold and tools (bash, file editor, search, finish), with
   the runtime backend pointed at our sandbox API. Record and replay then run in the
   same environment.

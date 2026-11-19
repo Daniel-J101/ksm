@@ -15,7 +15,9 @@ Zeroboot small enough to review and diff against upstream.
 | `patches/0001-vmstate-independent-anchor-pcid.patch` | `parse_vmstate` anchors the IOAPIC and vCPU blocks independently by content, with a PCID-aware CR3 check (+ CHANGELOG entry). Without it, `bench`/`serve` fail to load the snapshot. |
 | `patches/0002-firecracker-socket-timeout-120s.patch` | Firecracker API socket timeout 5 s → 120 s, so ≥ 400 MB snapshots don't fail with `os error 11`. |
 | `patches/0003-ksm-mergeable-forks.patch` | `ZEROBOOT_KSM_MERGEABLE=1` → `madvise(MADV_MERGEABLE)` on every fork mapping. Off by default (upstream behaviour). Without it ksmd never scans fork memory. |
-| `setup_zeroboot.sh` | clone → checkout pin → apply patches (skip if already applied) → fetch + verify kernel → build with pinned Rust → `make guest` |
+| `patches/0004-restore-guest-clock.patch` | Forks continue the guest clock from the snapshot: restore `IA32_TSC` + `TSC_DEADLINE` (parsed from Firecracker's MSR chunks by their exact layout) and `KVM_SET_CLOCK` to the guest's kvmclock time at snapshot. Without it every fork's TSC restarts at 0, so the **first sleep/timeout in a fork stalls for (boot → snapshot) seconds** (= template `WAIT_SECS`). Also logs if `KVM_SET_MSRS` stops early. |
+| `new_patch.sh` | write the changes in `$ZB_DIR` not yet covered by the series as the next numbered patch |
+| `setup_zeroboot.sh` | clone → checkout pin → apply patches (already-applied prefix detected by exact git-tree match) → fetch + verify kernel → build with pinned Rust → `make guest` |
 
 ## Use
 
@@ -34,20 +36,19 @@ neither applies nor is already applied.
 
 ## Changing Zeroboot
 
-Edit in `$ZB_DIR`, rebuild, test, then regenerate the patch from the pinned commit:
+Patches **stack**: later ones edit code that earlier ones added. So never
+regenerate an old patch with a plain `git diff` against the pin. Instead:
 
 ```bash
-cd ~/zeroboot
-git diff src/vmm/vmstate.rs CHANGELOG.md > ~/ksm/zeroboot-pin/patches/0001-vmstate-independent-anchor-pcid.patch
-git diff src/vmm/firecracker.rs          > ~/ksm/zeroboot-pin/patches/0002-firecracker-socket-timeout-120s.patch
-git diff src/vmm/kvm.rs                  > ~/ksm/zeroboot-pin/patches/0003-ksm-mergeable-forks.patch
-# a new, unrelated change -> a new numbered patch:
-git diff src/api/handlers.rs             > ~/ksm/zeroboot-pin/patches/0003-<what>.patch
+# edit + build + test in ~/zeroboot, then:
+bash ~/ksm/zeroboot-pin/new_patch.sh --dry-run          # what's not in the series yet
+bash ~/ksm/zeroboot-pin/new_patch.sh <short-name>       # -> patches/000N-<short-name>.patch
+ZB_DIR=/tmp/zb-check SKIP_BUILD=1 bash ~/ksm/zeroboot-pin/setup_zeroboot.sh && rm -rf /tmp/zb-check
 ```
 
-Each patch must apply cleanly to `ZB_COMMIT`, in numbered order. The simplest
-check is a throwaway fresh checkout:
-`ZB_DIR=/tmp/zb-check SKIP_BUILD=1 bash ~/ksm/zeroboot-pin/setup_zeroboot.sh && rm -rf /tmp/zb-check`.
+`setup_zeroboot.sh` finds which prefix of the series a checkout already has
+by comparing git trees exactly, so re-running it is always safe. It refuses a
+tree that matches no prefix.
 
 To move to a newer upstream: bump `ZB_COMMIT`, run `setup_zeroboot.sh` on a fresh
 `ZB_DIR`, fix any patches that no longer apply, and re-run the Phase 1 gate

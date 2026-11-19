@@ -18,4 +18,10 @@ REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
 : "${WORKDIR:=/tmp/zb-workdir-agent}"
 ZB="$ZB_DIR/target/release/zeroboot"
 
-export KSM_ROOT REAL_USER REAL_HOME ZB_DIR WORKDIR ZB
+# Phase 2+: big local data disk (tools/setup_data_disk.sh) for docker images,
+# R2E templates, traces and the R2E-Gym checkout.
+: "${DATA_DIR:=/mnt/data}"
+: "${R2E_DIR:=$DATA_DIR/r2e/R2E-Gym}"
+: "${TEMPLATES_DIR:=$DATA_DIR/templates}"
+
+export KSM_ROOT REAL_USER REAL_HOME ZB_DIR WORKDIR ZB DATA_DIR R2E_DIR TEMPLATES_DIR

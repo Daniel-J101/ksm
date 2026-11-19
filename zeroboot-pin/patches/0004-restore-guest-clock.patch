@@ -1,0 +1,148 @@
+diff --git a/src/vmm/kvm.rs b/src/vmm/kvm.rs
+index e91aa1a..ed39043 100644
+--- a/src/vmm/kvm.rs
++++ b/src/vmm/kvm.rs
+@@ -9,6 +9,30 @@ use super::serial::Serial;
+ 
+ extern "C" fn noop_signal_handler(_: libc::c_int) {}
+ 
++/// Guest kvmclock time (ns) at snapshot: the guest's pvclock record (GPA from
++/// MSR_KVM_SYSTEM_TIME_NEW) extrapolated to the snapshot TSC (MSR IA32_TSC).
++/// None if either is missing -- then behaviour is unchanged from upstream.
++fn snapshot_guest_ns(snapshot: &VmSnapshot, mem: *const u8) -> Option<u64> {
++    let msr = |i: u32| snapshot.msrs.iter().find(|e| e.index == i).map(|e| e.data);
++    let st = msr(0x4b564d01)?;
++    let tsc = msr(0x10)?;
++    if st & 1 == 0 { return None; }
++    let gpa = (st & !1) as usize;
++    if gpa + 32 > snapshot.mem_size { return None; }
++    // struct pvclock_vcpu_time_info { u32 version, pad; u64 tsc_timestamp;
++    //   u64 system_time; u32 tsc_to_system_mul; i8 tsc_shift; u8 flags; }
++    let (tsc_ts, sys, mul, shift) = unsafe {
++        let p = mem.add(gpa);
++        (ptr::read_unaligned(p.add(8) as *const u64),
++         ptr::read_unaligned(p.add(16) as *const u64),
++         ptr::read_unaligned(p.add(24) as *const u32),
++         ptr::read_unaligned(p.add(28) as *const i8))
++    };
++    let delta = tsc.checked_sub(tsc_ts)?;
++    let delta = if shift >= 0 { delta << shift } else { delta >> (-shift) };
++    Some(sys + ((delta as u128 * mul as u128) >> 32) as u64)
++}
++
+ /// ZEROBOOT_KSM_MERGEABLE=1 -> madvise(MADV_MERGEABLE) every fork mapping (read once).
+ fn ksm_mergeable() -> bool {
+     static FLAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+@@ -102,6 +126,15 @@ impl ForkedVm {
+             })?;
+         }
+ 
++        // ksm patch 0004: continue the guest clock from the snapshot instead of
++        // restarting it at 0 (a fresh KVM VM's kvmclock starts at 0).
++        if let Some(ns) = snapshot_guest_ns(snapshot, fork_mem as *const u8) {
++            let clock = kvm_clock_data { clock: ns, ..Default::default() };
++            if let Err(e) = vm_fd.set_clock(&clock) {
++                eprintln!("warning: KVM_SET_CLOCK failed: {}", e);
++            }
++        }
++
+         let vcpu_fd = vm_fd.create_vcpu(0)?;
+ 
+         // Use Firecracker's exact CPUID from the snapshot, not host defaults.
+@@ -142,7 +175,12 @@ impl ForkedVm {
+                 if e.index == 0x4b564d00 { e.data |= 1; }
+                 msrs.as_mut_slice()[i] = e;
+             }
+-            let _ = vcpu_fd.set_msrs(&msrs);
++            match vcpu_fd.set_msrs(&msrs) {
++                Ok(n) if n == snapshot.msrs.len() => {}
++                Ok(n) => eprintln!("warning: KVM_SET_MSRS set {}/{}; stopped at MSR {:#x}",
++                                   n, snapshot.msrs.len(), snapshot.msrs[n].index),
++                Err(e) => eprintln!("warning: KVM_SET_MSRS failed: {}", e),
++            }
+         }
+ 
+         // MUST be last: set MP state to RUNNABLE so vCPU isn't stuck in HLT
+diff --git a/src/vmm/vmstate.rs b/src/vmm/vmstate.rs
+index 5779f44..6c8615e 100644
+--- a/src/vmm/vmstate.rs
++++ b/src/vmm/vmstate.rs
+@@ -390,6 +390,29 @@ fn parse_cpuid(data: &[u8]) -> Vec<kvm_cpuid_entry2> {
+     Vec::new() // Fallback: no CPUID found
+ }
+ 
++/// Locate Firecracker's serialized MSR chunks (ksm patch 0004). Each chunk is
++///   u64 8, u64 n, u64 n,  then n x { u64 16, u32 index, u32 0, u64 data }
++/// (versionize Vec<kvm_msr_entry>). Firecracker splits the list: the main chunk
++/// (~190 MSRs) and a 1-entry chunk holding TSC_DEADLINE, which must be restored
++/// after IA32_TSC. Returns every (records_start, n) whose header AND all n
++/// records match -- a far stricter anchor than scanning for index values.
++fn find_msr_chunks(data: &[u8]) -> Vec<(usize, usize)> {
++    let rec = |o: usize| o + 24 <= data.len() && r64(data, o) == 16 && r32(data, o + 12) == 0;
++    let mut out = Vec::new();
++    let mut o = 0;
++    while o + 24 <= data.len() {
++        let n = r64(data, o + 8) as usize;
++        if r64(data, o) == 8 && n >= 1 && n <= 1024 && r64(data, o + 16) == n as u64
++            && (0..n).all(|k| rec(o + 24 + 24 * k)) {
++            out.push((o + 24, n));
++            o += 24 + 24 * n;
++        } else {
++            o += 1;
++        }
++    }
++    out
++}
++
+ fn parse_msrs(data: &[u8]) -> Vec<kvm_msr_entry> {
+     let targets: &[(u32, fn(u64) -> bool)] = &[
+         (0xc0000081, |v| v != 0),
+@@ -399,22 +422,42 @@ fn parse_msrs(data: &[u8]) -> Vec<kvm_msr_entry> {
+         (0xc0000102, |_| true),
+         (0x4b564d00, |v| v != 0 && v < 0x100000000),
+         (0x4b564d01, |v| v != 0 && v < 0x100000000),
++        // ksm patch 0004: guest TSC + TSC-deadline timer. Without these every
++        // fork's TSC restarts at 0 while the guest's timers were armed against
++        // the snapshot-time TSC, so the first sleep in a fork stalls for
++        // (boot -> snapshot) seconds. Only taken from the real MSR array:
++        // index 0x10 also matches length prefixes all over the vmstate.
++        (0x10, |v| v > 0),
++        (0x6e0, |_| true),
+     ];
+     let mut entries = Vec::new();
++    let chunks = find_msr_chunks(data);
++    if chunks.iter().map(|&(_, n)| n).sum::<usize>() >= 8 {
++        // Chunks are in file order, so IA32_TSC (main chunk) precedes
++        // TSC_DEADLINE (its own later chunk), as KVM requires.
++        for (start, n) in chunks {
++            for k in 0..n {
++                let o = start + 24 * k + 8;
++                let (idx, val) = (r32(data, o), r64(data, o + 8));
++                if let Some(&(t, _)) = targets.iter().find(|&&(t, f)| t == idx && f(val)) {
++                    entries.push(kvm_msr_entry { index: t, reserved: 0, data: val });
++                }
++            }
++        }
++        return entries;
++    }
++    // Fallback (no recognizable MSR array): the original loose scan, minus the
++    // index values that are too ambiguous to find this way.
+     for i in 0..data.len().saturating_sub(16) {
+         let idx = r32(data, i);
+         let res = r32(data, i + 4);
+-        if res != 0 {
++        if res != 0 || idx == 0x10 || idx == 0x6e0 {
+             continue;
+         }
+         let val = r64(data, i + 8);
+         for &(t, f) in targets {
+             if idx == t && f(val) {
+-                entries.push(kvm_msr_entry {
+-                    index: t,
+-                    reserved: 0,
+-                    data: val,
+-                });
++                entries.push(kvm_msr_entry { index: t, reserved: 0, data: val });
+             }
+         }
+     }
