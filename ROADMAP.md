@@ -89,6 +89,7 @@ identical pages); 0 without the patch; serve Pss drop = `pages_sharing`. See
   image.
 
 ### Phase 3 — Record traces once with DeepSeek
+✅ **Pilot done (2026-11-19):** 20 traces, all solved; recorder `phase3_traces/record.py` (R2E agent unmodified, fn-calling via model label). Full 10-repo collection pending.
 **Changed 2026-11-19 (agreed):** record with R2E-Gym's own **docker** runtime,
 unmodified; replay the (think time, command) pairs into Zeroboot sandboxes built
 from the same image. R2E-Gym already logs `llm_exec_time` per step and each
@@ -151,4 +152,5 @@ directory on a freshly provisioned node, and its output is saved under that phas
 the pilot's Phase 4 numbers within run-to-run noise.
 
 ## Immediate next step
-Phase 3: record DeepSeek traces in R2E-Gym's docker runtime (pilot: aiohttp#0, 16 Rollout + 4 GAF). Needs a DeepSeek API key.
+Phase 3 pilot recorded (2026-11-19): aiohttp#0, 16 Rollout + 4 GAF, 20/20 solved, ≈ $0.11–0.28. See `phase3_traces/README.md`.
+Next: Phase 4 replayer + KSM measurement on the pilot cohort, then full trace collection (1 task × 10 repos).
