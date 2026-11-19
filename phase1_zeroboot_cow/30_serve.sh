@@ -43,14 +43,19 @@ fi
 # Exported here because we run the binary directly (a nested sudo would drop it).
 export ZEROBOOT_KSM_MERGEABLE="${ZEROBOOT_KSM_MERGEABLE:-0}"
 
-echo "serving $WORKDIR on 127.0.0.1:$PORT  (KSM_MERGEABLE=$ZEROBOOT_KSM_MERGEABLE)"
+# NUMA_NODE=N pins serve's CPUs and memory (incl. the snapshot memfd and every
+# fork's private pages) to one node, so runs don't vary with page placement.
+PIN=()
+[ -n "${NUMA_NODE:-}" ] && PIN=(numactl --cpunodebind="$NUMA_NODE" --membind="$NUMA_NODE")
+
+echo "serving $WORKDIR on 127.0.0.1:$PORT  (KSM_MERGEABLE=$ZEROBOOT_KSM_MERGEABLE NUMA_NODE=${NUMA_NODE:-any})"
 if [ "${BACKGROUND:-0}" = "1" ]; then
-    nohup "$ZB" serve "$WORKDIR" "$PORT" >"$LOG" 2>&1 &
+    nohup "${PIN[@]}" "$ZB" serve "$WORKDIR" "$PORT" >"$LOG" 2>&1 &
     echo $! > "$PIDF"
     for _ in $(seq 1 50); do curl -sf "localhost:$PORT/v1/health" >/dev/null && break; sleep 0.2; done
     echo "pid $(cat "$PIDF")  log $LOG"
     curl -s "localhost:$PORT/v1/health" | (jq -c . 2>/dev/null || cat) || \
         echo "health not ready yet; tail $LOG"
 else
-    exec "$ZB" serve "$WORKDIR" "$PORT"
+    exec "${PIN[@]}" "$ZB" serve "$WORKDIR" "$PORT"
 fi

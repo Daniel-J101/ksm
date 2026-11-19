@@ -28,6 +28,7 @@ The Rust build takes ~20 s and the template ~10 s; most of the time is apt and t
 | `zeroboot-pin/` | Pinned upstream Zeroboot commit + our patches + setup script. See its [README](zeroboot-pin/README.md). |
 | `phase1_zeroboot_cow/` | Phase 1 + 1b: Zeroboot running, CoW sharing measured, KSM feasibility gate. See its [README](phase1_zeroboot_cow/README.md). |
 | `phase3_traces/` | Phase 3: record DeepSeek agent trajectories once (R2E-Gym in docker) for replay. [`README.md`](phase3_traces/README.md). |
+| `phase4_replay_ksm/` | Phase 4: replay traces in Zeroboot, NoComp vs KSM memory. [`README.md`](phase4_replay_ksm/README.md). |
 | `traces/` | Compact recorded traces (Phase 4 replay input), `<repo>/<commit12>/<rollout|gaf>/<k>.json`. |
 | `tools/ksm_ctl.sh` | Put KSM in a known, recorded state (`status` / `off` / `on`, knobs pinned via env). Every experiment uses it. |
 | `phase2_sandbox/` | Phase 2: persistent, code-running sandboxes from R2E-Gym task templates. How to run: [`README.md`](phase2_sandbox/README.md); design and progress: [`PLAN.md`](phase2_sandbox/PLAN.md). |

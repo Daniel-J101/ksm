@@ -23,7 +23,7 @@ bash "$KSM_ROOT/tools/setup_data_disk.sh"
 
 echo "== 2. docker (data-root=$DATA_DIR/docker) =="
 export DEBIAN_FRONTEND=noninteractive
-apt-get install -y docker.io python3-venv
+apt-get install -y docker.io python3-venv numactl   # numactl: Phase 4 pins serve to one NUMA node
 mkdir -p /etc/docker
 want="{\"data-root\": \"$DATA_DIR/docker\"}"
 if [ "$(cat /etc/docker/daemon.json 2>/dev/null)" != "$want" ]; then

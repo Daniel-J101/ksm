@@ -110,6 +110,7 @@ below that say "runtime backend pointed at our sandbox API" are superseded.
   codes as recorded.
 
 ### Phase 4 — Replay + KSM measurement (the headline result)
+✅ **Pilot done (2026-11-19):** aiohttp#0, KSM saves **10.4 ± 0.6 %** (Rollout, 16 sandboxes) and **3.5 ± 0.5 %** (GAF, 4) of sandbox-owned memory at ≈1% slowdown and ~½ core of ksmd. See `phase4_replay_ksm/README.md`.
 - **Replayer:** for one cohort, create N sandboxes concurrently from the task
   template. Per step, sleep `think_time_ms_before`, then exec. Record wall time.
 - **Sampler (1 Hz):**
@@ -152,5 +153,7 @@ directory on a freshly provisioned node, and its output is saved under that phas
 the pilot's Phase 4 numbers within run-to-run noise.
 
 ## Immediate next step
-Phase 3 pilot recorded (2026-11-19): aiohttp#0, 16 Rollout + 4 GAF, 20/20 solved, ≈ $0.11–0.28. See `phase3_traces/README.md`.
-Next: Phase 4 replayer + KSM measurement on the pilot cohort, then full trace collection (1 task × 10 repos).
+Pilot done end to end (Phases 1–4). Next, in any order:
+(a) KSM scan-rate sensitivity on the pilot (free);
+(b) §6.5-style similarity analysis: how much of the private memory is near-duplicate, i.e. what KSM can't merge (free);
+(c) full trace collection, 1 task × 10 repos (~$3–15 DeepSeek), then the Phase 4 matrix per repo.
