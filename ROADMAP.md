@@ -68,7 +68,7 @@ identical pages); 0 without the patch; serve Pss drop = `pages_sharing`. See
   stop and rethink before Phase 2.
 
 ### Phase 2 — Persistent, code-running sandboxes (largest engineering step)
-**Detailed plan: [`phase2_sandbox/PLAN.md`](phase2_sandbox/PLAN.md)** (supersedes the bullets below where they differ).
+✅ **Done (2026-11-19): gate passed.** 16 sandboxes × 13.5 min, 0 diffs vs docker. See [`phase2_sandbox/README.md`](phase2_sandbox/README.md); detailed plan: [`PLAN.md`](phase2_sandbox/PLAN.md) (supersedes the bullets below where they differ).
 - **Zeroboot patch `0004-persistent-sandboxes`:**
   - `POST /v1/sandboxes` forks and keeps the VM; `POST /v1/sandboxes/{id}/exec`;
     `DELETE /v1/sandboxes/{id}`.
@@ -151,4 +151,4 @@ directory on a freshly provisioned node, and its output is saved under that phas
 the pilot's Phase 4 numbers within run-to-run noise.
 
 ## Immediate next step
-Phase 2: persistent, code-running sandboxes.
+Phase 3: record DeepSeek traces in R2E-Gym's docker runtime (pilot: aiohttp#0, 16 Rollout + 4 GAF). Needs a DeepSeek API key.

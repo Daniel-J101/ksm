@@ -1,0 +1,396 @@
+diff --git a/src/api/handlers.rs b/src/api/handlers.rs
+index 2b81b22..cc3c63f 100644
+--- a/src/api/handlers.rs
++++ b/src/api/handlers.rs
+@@ -201,7 +201,7 @@ fn extract_api_key(headers: &HeaderMap) -> Option<String> {
+         .map(|s| s.to_string())
+ }
+ 
+-fn check_auth(state: &AppState, headers: &HeaderMap) -> Result<String, (StatusCode, Json<ErrorResponse>)> {
++pub(crate) fn check_auth(state: &AppState, headers: &HeaderMap) -> Result<String, (StatusCode, Json<ErrorResponse>)> {
+     if state.api_keys.is_empty() {
+         return Ok("anonymous".to_string());
+     }
+diff --git a/src/api/mod.rs b/src/api/mod.rs
+index c3d4495..4e11f41 100644
+--- a/src/api/mod.rs
++++ b/src/api/mod.rs
+@@ -1 +1,2 @@
+ pub mod handlers;
++pub mod sandboxes;
+diff --git a/src/api/sandboxes.rs b/src/api/sandboxes.rs
+new file mode 100644
+index 0000000..bfd7e66
+--- /dev/null
++++ b/src/api/sandboxes.rs
+@@ -0,0 +1,354 @@
++//! Persistent sandboxes (ksm patch 0007).
++//!
++//! Upstream Zeroboot forks a VM per `/v1/exec` and drops it afterwards. AI-agent
++//! workloads need a sandbox that lives across many tool calls with idle "LLM
++//! think" gaps in between, so this adds:
++//!
++//!   POST   /v1/sandboxes                 {template?, seed?, epoch_ns?} -> {id, fork_ms, init_ms}
++//!   GET    /v1/sandboxes                 -> [{id, template, age_s, requests}]
++//!   POST   /v1/sandboxes/{id}/exec       {cmd, cwd?, timeout_ms?, max_output?} ->
++//!                                        {output, exit_code, truncated, timed_out, exec_ms}
++//!   POST   /v1/sandboxes/{id}/files      {path, content_b64, mode?} -> {ok}
++//!   DELETE /v1/sandboxes/{id}
++//!
++//! Each sandbox is owned by one OS thread (KVM vCPU ioctls stay on one thread,
++//! and the per-thread SIGALRM timeout keeps working). The vCPU only runs while
++//! a request is in flight; between requests the VM is paused but its memory
++//! stays mapped -- the "LLM-idle" sandbox state AgentZip measures.
++//!
++//! Talks to the ksm guest agent (phase2_sandbox/agent/zbagent.c) over the
++//! serial port; see that file for the line protocol.
++
++use axum::extract::{Json, Path, State};
++use axum::http::{HeaderMap, StatusCode};
++use axum::response::IntoResponse;
++use serde::{Deserialize, Serialize};
++use std::collections::HashMap;
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::sync::{mpsc, Arc, Mutex, OnceLock};
++use std::time::{Duration, Instant};
++
++use super::handlers::{check_auth, AppState, ErrorResponse};
++use crate::vmm::kvm::{ForkedVm, HltPolicy};
++
++/// Raw bytes per staging line (base64 -> ~11 KB/line, well under the guest
++/// tty flip-buffer limit).
++const CHUNK: usize = 8192;
++/// Host-side margin on top of the guest's own exec timeout.
++const HOST_SLACK: Duration = Duration::from_secs(30);
++const SMALL_OP: Duration = Duration::from_secs(30);
++
++// ---------------------------------------------------------------- base64
++
++const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++
++fn b64_encode(data: &[u8]) -> String {
++    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
++    for c in data.chunks(3) {
++        let n = (c[0] as u32) << 16 | (*c.get(1).unwrap_or(&0) as u32) << 8 | *c.get(2).unwrap_or(&0) as u32;
++        for i in 0..4 {
++            if i <= c.len() { out.push(B64[(n >> (18 - 6 * i) & 63) as usize] as char); } else { out.push('='); }
++        }
++    }
++    out
++}
++
++fn b64_decode(s: &str) -> Result<Vec<u8>, String> {
++    let mut out = Vec::with_capacity(s.len() / 4 * 3);
++    let (mut acc, mut bits) = (0u32, 0u32);
++    for ch in s.bytes() {
++        let v = match ch {
++            b'A'..=b'Z' => ch - b'A', b'a'..=b'z' => ch - b'a' + 26, b'0'..=b'9' => ch - b'0' + 52,
++            b'+' => 62, b'/' => 63, b'=' | b'\n' | b'\r' | b' ' => continue,
++            _ => return Err(format!("invalid base64 byte {:#x}", ch)),
++        } as u32;
++        acc = acc << 6 | v; bits += 6;
++        if bits >= 8 { bits -= 8; out.push((acc >> bits) as u8); }
++    }
++    Ok(out)
++}
++
++// ---------------------------------------------------------------- sandbox thread
++
++struct ExecOut { output: Vec<u8>, exit_code: i32, truncated: bool, timed_out: bool, exec_ms: f64 }
++
++enum Req {
++    Exec { cwd: String, cmd: String, timeout_ms: u64, cap: u64, reply: mpsc::Sender<Result<ExecOut, String>> },
++    Put { path: String, data: Vec<u8>, mode: u32, reply: mpsc::Sender<Result<(), String>> },
++}
++
++struct Guest { vm: ForkedVm, seq: u64 }
++
++impl Guest {
++    /// Send one request line; run the vCPU until its end frame. Returns
++    /// (payload of its O frames, code, flags).
++    fn transact(&mut self, op: &str, args: &str, timeout: Duration) -> Result<(Vec<u8>, i32, u32), String> {
++        self.seq += 1;
++        let id = format!("r{}", self.seq);
++        let line = if args.is_empty() { format!("{} {}\n", op, id) } else { format!("{} {} {}\n", op, id, args) };
++        let end = format!("\x01ZB {} E ", id).into_bytes();
++        self.vm.send_serial(line.as_bytes()).map_err(|e| e.to_string())?;
++        let mut scanned = 0usize;
++        let mut hit: Option<usize> = None;
++        let finished = self.vm.run_until(u64::MAX, Some(timeout), HltPolicy::Continue, |out| {
++            if hit.is_none() {
++                let from = scanned.saturating_sub(end.len().saturating_sub(1));
++                hit = out[from..].windows(end.len()).position(|w| w == end.as_slice()).map(|p| from + p);
++                scanned = out.len();
++            }
++            // done once the end frame's header line is complete
++            hit.map_or(false, |p| out[p + end.len()..].contains(&b'\n'))
++        }).map_err(|e| e.to_string())?;
++        let out = self.vm.take_output();
++        if !finished { return Err("guest stopped before answering".into()); }
++        parse_frames(&out, &id)
++    }
++
++    fn stage(&mut self, payload: &[u8]) -> Result<(), String> {
++        let (_, rc, _) = self.transact("R", "", SMALL_OP)?;
++        if rc != 0 { return Err(format!("stage reset: {}", rc)); }
++        for c in payload.chunks(CHUNK) {
++            let (_, rc, _) = self.transact("A", &b64_encode(c), SMALL_OP)?;
++            if rc != 0 { return Err(format!("stage append: {}", rc)); }
++        }
++        Ok(())
++    }
++}
++
++/// Collect the O payloads and the E (code, flags) for request `id`; anything
++/// else on the port (kernel console noise, other ids) is ignored.
++fn parse_frames(out: &[u8], id: &str) -> Result<(Vec<u8>, i32, u32), String> {
++    let mut payload = Vec::new();
++    let mut i = 0;
++    while let Some(p) = out[i..].windows(4).position(|w| w == b"\x01ZB ") {
++        let h0 = i + p + 4;
++        let Some(nl) = out[h0..].iter().position(|&b| b == b'\n') else { break };
++        let header = String::from_utf8_lossy(&out[h0..h0 + nl]).to_string();
++        let mut f = header.split(' ');
++        let (fid, kind) = (f.next().unwrap_or(""), f.next().unwrap_or(""));
++        i = h0 + nl + 1;
++        match kind {
++            "O" => {
++                let len: usize = f.next().and_then(|v| v.parse().ok()).ok_or("bad O frame")?;
++                let body = out.get(i..i + len).ok_or("truncated O frame")?;
++                if fid == id { payload.extend_from_slice(body); }
++                i += len;
++            }
++            "E" if fid == id => {
++                let code: i32 = f.next().and_then(|v| v.parse().ok()).unwrap_or(-1);
++                let flags: u32 = f.next().and_then(|v| v.parse().ok()).unwrap_or(0);
++                return Ok((payload, code, flags));
++            }
++            _ => {}
++        }
++    }
++    Err("no end frame".into())
++}
++
++fn sandbox_thread(state: Arc<AppState>, template: String, seed: u64, epoch_ns: i64,
++                  ready: mpsc::Sender<Result<(f64, f64), String>>, rx: mpsc::Receiver<Req>) {
++    let Some(t) = state.templates.get(&template) else {
++        let _ = ready.send(Err(format!("no template {:?}", template)));
++        return;
++    };
++    let vm = match ForkedVm::fork_cow(&t.snapshot, t.memfd) {
++        Ok(vm) => vm,
++        Err(e) => { let _ = ready.send(Err(format!("fork failed: {}", e))); return; }
++    };
++    let fork_ms = vm.fork_time_us / 1000.0;
++    let mut g = Guest { vm, seq: 0 };
++    let t0 = Instant::now();
++    match g.transact("I", &format!("{} {}", seed, epoch_ns), SMALL_OP) {
++        Ok((_, 0, _)) => {}
++        Ok((_, rc, _)) => { let _ = ready.send(Err(format!("guest init returned {}", rc))); return; }
++        Err(e) => { let _ = ready.send(Err(format!("guest init: {} (is the template built with zbagent?)", e))); return; }
++    }
++    let _ = ready.send(Ok((fork_ms, t0.elapsed().as_secs_f64() * 1000.0)));
++
++    // Requests until every sender is dropped (DELETE) or the guest breaks.
++    for req in rx {
++        match req {
++            Req::Exec { cwd, cmd, timeout_ms, cap, reply } => {
++                let t0 = Instant::now();
++                let mut staged = cwd.into_bytes(); staged.push(0); staged.extend_from_slice(cmd.as_bytes());
++                let r = g.stage(&staged).and_then(|_| g.transact("X", &format!("{} {}", timeout_ms, cap),
++                        Duration::from_millis(timeout_ms) + HOST_SLACK));
++                let broken = r.is_err();
++                let _ = reply.send(r.map(|(output, code, flags)| ExecOut {
++                    output, exit_code: code, truncated: flags & 1 != 0, timed_out: flags & 2 != 0,
++                    exec_ms: t0.elapsed().as_secs_f64() * 1000.0,
++                }));
++                if broken { break; }
++            }
++            Req::Put { path, data, mode, reply } => {
++                let mut staged = path.into_bytes(); staged.push(0); staged.extend_from_slice(&data);
++                let r = g.stage(&staged).and_then(|_| g.transact("P", &format!("{:o}", mode), SMALL_OP))
++                    .and_then(|(_, rc, _)| if rc == 0 { Ok(()) } else { Err(format!("guest write failed: errno {}", -rc)) });
++                let broken = matches!(&r, Err(e) if !e.starts_with("guest write failed"));
++                let _ = reply.send(r);
++                if broken { break; }
++            }
++        }
++    }
++    // dropping `g` unmaps the fork's memory
++}
++
++// ---------------------------------------------------------------- registry
++
++struct Entry { tx: mpsc::Sender<Req>, template: String, created: Instant, requests: Arc<AtomicU64> }
++
++fn registry() -> &'static Mutex<HashMap<String, Entry>> {
++    static R: OnceLock<Mutex<HashMap<String, Entry>>> = OnceLock::new();
++    R.get_or_init(|| Mutex::new(HashMap::new()))
++}
++
++fn err(code: StatusCode, msg: impl Into<String>) -> axum::response::Response {
++    (code, Json(ErrorResponse { error: msg.into(), request_id: None })).into_response()
++}
++
++fn lookup(id: &str) -> Option<(mpsc::Sender<Req>, Arc<AtomicU64>)> {
++    registry().lock().unwrap().get(id).map(|e| (e.tx.clone(), e.requests.clone()))
++}
++
++// ---------------------------------------------------------------- handlers
++
++#[derive(Deserialize)]
++pub struct CreateReq {
++    #[serde(default = "default_template")] template: String,
++    seed: Option<u64>,
++    epoch_ns: Option<i64>,
++}
++fn default_template() -> String { "python".into() }
++
++#[derive(Serialize)]
++struct CreateResp { id: String, fork_ms: f64, init_ms: f64 }
++
++pub async fn create(State(state): State<Arc<AppState>>, headers: HeaderMap, Json(req): Json<CreateReq>) -> axum::response::Response {
++    if let Err(e) = check_auth(&state, &headers) { return e.into_response(); }
++    static N: AtomicU64 = AtomicU64::new(0);
++    let id = format!("sb{}", N.fetch_add(1, Ordering::Relaxed) + 1);
++    let seed = req.seed.unwrap_or_else(|| uuid::Uuid::now_v7().as_u128() as u64);
++    let epoch_ns = req.epoch_ns.unwrap_or_else(|| std::time::SystemTime::now()
++        .duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as i64).unwrap_or(0));
++    let (tx, rx) = mpsc::channel();
++    let (rtx, rrx) = mpsc::channel();
++    let template = req.template.clone();
++    let st = state.clone();
++    std::thread::Builder::new().name(format!("zb-{}", id))
++        .spawn(move || sandbox_thread(st, template, seed, epoch_ns, rtx, rx))
++        .expect("spawn sandbox thread");
++    match tokio::task::spawn_blocking(move || rrx.recv()).await {
++        Ok(Ok(Ok((fork_ms, init_ms)))) => {
++            registry().lock().unwrap().insert(id.clone(), Entry {
++                tx, template: req.template, created: Instant::now(), requests: Arc::new(AtomicU64::new(0)) });
++            (StatusCode::OK, Json(CreateResp { id, fork_ms, init_ms })).into_response()
++        }
++        Ok(Ok(Err(e))) => err(StatusCode::INTERNAL_SERVER_ERROR, e),
++        _ => err(StatusCode::INTERNAL_SERVER_ERROR, "sandbox thread died during create"),
++    }
++}
++
++#[derive(Serialize)]
++struct ListItem { id: String, template: String, age_s: f64, requests: u64 }
++
++pub async fn list(State(state): State<Arc<AppState>>, headers: HeaderMap) -> axum::response::Response {
++    if let Err(e) = check_auth(&state, &headers) { return e.into_response(); }
++    let items: Vec<ListItem> = registry().lock().unwrap().iter().map(|(id, e)| ListItem {
++        id: id.clone(), template: e.template.clone(), age_s: e.created.elapsed().as_secs_f64(),
++        requests: e.requests.load(Ordering::Relaxed) }).collect();
++    (StatusCode::OK, Json(items)).into_response()
++}
++
++#[derive(Deserialize)]
++pub struct ExecReq {
++    cmd: String,
++    #[serde(default)] cwd: String,
++    #[serde(default = "default_timeout_ms")] timeout_ms: u64,
++    #[serde(default = "default_max_output")] max_output: u64,
++}
++fn default_timeout_ms() -> u64 { 300_000 }
++fn default_max_output() -> u64 { 1 << 20 }
++
++#[derive(Serialize)]
++struct ExecResp { output: String, exit_code: i32, truncated: bool, timed_out: bool, exec_ms: f64 }
++
++pub async fn exec(State(state): State<Arc<AppState>>, headers: HeaderMap, Path(id): Path<String>,
++                  Json(req): Json<ExecReq>) -> axum::response::Response {
++    if let Err(e) = check_auth(&state, &headers) { return e.into_response(); }
++    let Some((tx, n)) = lookup(&id) else { return err(StatusCode::NOT_FOUND, "no such sandbox") };
++    n.fetch_add(1, Ordering::Relaxed);
++    let (rtx, rrx) = mpsc::channel();
++    if tx.send(Req::Exec { cwd: req.cwd, cmd: req.cmd, timeout_ms: req.timeout_ms, cap: req.max_output, reply: rtx }).is_err() {
++        registry().lock().unwrap().remove(&id);
++        return err(StatusCode::GONE, "sandbox is gone");
++    }
++    match tokio::task::spawn_blocking(move || rrx.recv()).await {
++        Ok(Ok(Ok(o))) => (StatusCode::OK, Json(ExecResp {
++            output: String::from_utf8_lossy(&o.output).into_owned(), exit_code: o.exit_code,
++            truncated: o.truncated, timed_out: o.timed_out, exec_ms: (o.exec_ms * 100.0).round() / 100.0,
++        })).into_response(),
++        Ok(Ok(Err(e))) => { registry().lock().unwrap().remove(&id); err(StatusCode::INTERNAL_SERVER_ERROR, format!("sandbox broken, removed: {}", e)) }
++        _ => { registry().lock().unwrap().remove(&id); err(StatusCode::GONE, "sandbox thread exited") }
++    }
++}
++
++#[derive(Deserialize)]
++pub struct PutReq {
++    path: String,
++    content_b64: String,
++    #[serde(default)] mode: Option<String>,
++}
++
++pub async fn put_file(State(state): State<Arc<AppState>>, headers: HeaderMap, Path(id): Path<String>,
++                      Json(req): Json<PutReq>) -> axum::response::Response {
++    if let Err(e) = check_auth(&state, &headers) { return e.into_response(); }
++    let data = match b64_decode(&req.content_b64) { Ok(d) => d, Err(e) => return err(StatusCode::BAD_REQUEST, e) };
++    let mode = match req.mode.as_deref().map(|m| u32::from_str_radix(m, 8)) {
++        None => 0o644, Some(Ok(m)) => m, Some(Err(_)) => return err(StatusCode::BAD_REQUEST, "mode must be octal"),
++    };
++    let Some((tx, n)) = lookup(&id) else { return err(StatusCode::NOT_FOUND, "no such sandbox") };
++    n.fetch_add(1, Ordering::Relaxed);
++    let (rtx, rrx) = mpsc::channel();
++    if tx.send(Req::Put { path: req.path, data, mode, reply: rtx }).is_err() {
++        registry().lock().unwrap().remove(&id);
++        return err(StatusCode::GONE, "sandbox is gone");
++    }
++    match tokio::task::spawn_blocking(move || rrx.recv()).await {
++        Ok(Ok(Ok(()))) => (StatusCode::OK, Json(serde_json::json!({"ok": true}))).into_response(),
++        Ok(Ok(Err(e))) => err(StatusCode::INTERNAL_SERVER_ERROR, e),
++        _ => { registry().lock().unwrap().remove(&id); err(StatusCode::GONE, "sandbox thread exited") }
++    }
++}
++
++pub async fn delete(State(state): State<Arc<AppState>>, headers: HeaderMap, Path(id): Path<String>) -> axum::response::Response {
++    if let Err(e) = check_auth(&state, &headers) { return e.into_response(); }
++    // Dropping the last Sender ends the sandbox thread's loop, which drops the VM.
++    match registry().lock().unwrap().remove(&id) {
++        Some(_) => (StatusCode::OK, Json(serde_json::json!({"ok": true}))).into_response(),
++        None => err(StatusCode::NOT_FOUND, "no such sandbox"),
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn b64_roundtrip() {
++        for n in 0..40usize {
++            let v: Vec<u8> = (0..n as u8).map(|x| x.wrapping_mul(37)).collect();
++            assert_eq!(b64_decode(&b64_encode(&v)).unwrap(), v);
++        }
++        assert_eq!(b64_encode(b"Man"), "TWFu");
++        assert_eq!(b64_encode(b"Ma"), "TWE=");
++    }
++    #[test]
++    fn frames() {
++        let mut out = b"kernel noise\n".to_vec();
++        out.extend_from_slice(b"\x01ZB r1 O 5\nhello");
++        out.extend_from_slice(b"\x01ZB r9 O 3\nxyz");
++        out.extend_from_slice(b"\x01ZB r1 O 2\n\n\x01");
++        out.extend_from_slice(b"\x01ZB r1 E 3 1\n");
++        let (p, c, f) = parse_frames(&out, "r1").unwrap();
++        assert_eq!(p, b"hello\n\x01"); assert_eq!(c, 3); assert_eq!(f, 1);
++    }
++}
+diff --git a/src/main.rs b/src/main.rs
+index 527fa70..3536325 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -428,6 +428,11 @@ fn cmd_serve(args: &[String]) -> Result<()> {
+             .route("/health", axum::routing::get(health_handler.clone()))
+             .route("/v1/health", axum::routing::get(health_handler))
+             .route("/v1/metrics", axum::routing::get(metrics_handler))
++            // ksm patch 0007: persistent sandboxes
++            .route("/v1/sandboxes", axum::routing::post(api::sandboxes::create).get(api::sandboxes::list))
++            .route("/v1/sandboxes/{id}", axum::routing::delete(api::sandboxes::delete))
++            .route("/v1/sandboxes/{id}/exec", axum::routing::post(api::sandboxes::exec))
++            .route("/v1/sandboxes/{id}/files", axum::routing::post(api::sandboxes::put_file))
+             .with_state(state);
+ 
+         let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port))

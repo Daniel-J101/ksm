@@ -22,13 +22,20 @@ GIT_INDEX_FILE="$tmpidx" git read-tree "$ZB_COMMIT"
 for p in "${patches[@]}"; do GIT_INDEX_FILE="$tmpidx" git apply --cached "$p"; done
 series_tree="$(GIT_INDEX_FILE="$tmpidx" git write-tree)"
 
-if git diff --quiet "$series_tree" -- .; then
+# Working tree as a git tree: tracked changes anywhere + NEW files under src/
+# (other untracked files, e.g. agent binaries built into guest/, stay out).
+GIT_INDEX_FILE="$tmpidx" git read-tree "$ZB_COMMIT"
+GIT_INDEX_FILE="$tmpidx" git add -u .
+GIT_INDEX_FILE="$tmpidx" git add -A src
+work_tree="$(GIT_INDEX_FILE="$tmpidx" git write-tree)"
+
+if [ "$series_tree" = "$work_tree" ]; then
     echo "nothing to do: $ZB_DIR already equals pin + ${#patches[@]} patches"; exit 0
 fi
-git diff --stat "$series_tree" -- .
+git diff --stat "$series_tree" "$work_tree"
 [ "$1" = --dry-run ] && exit 0
 
 next=$(printf '%04d' $(( ${#patches[@]} + 1 )))
 out="$PIN_DIR/patches/$next-$1.patch"
-git diff "$series_tree" -- . > "$out"
+git diff "$series_tree" "$work_tree" > "$out"
 echo "wrote $out -- re-run setup_zeroboot.sh on a fresh ZB_DIR to confirm it applies"

@@ -23,5 +23,6 @@ ZB="$ZB_DIR/target/release/zeroboot"
 : "${DATA_DIR:=/mnt/data}"
 : "${R2E_DIR:=$DATA_DIR/r2e/R2E-Gym}"
 : "${TEMPLATES_DIR:=$DATA_DIR/templates}"
+: "${HF_HOME:=$DATA_DIR/hf}"          # HuggingFace datasets cache (R2E-Gym task metadata)
 
-export KSM_ROOT REAL_USER REAL_HOME ZB_DIR WORKDIR ZB DATA_DIR R2E_DIR TEMPLATES_DIR
+export KSM_ROOT REAL_USER REAL_HOME ZB_DIR WORKDIR ZB DATA_DIR R2E_DIR TEMPLATES_DIR HF_HOME

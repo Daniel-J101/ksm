@@ -1,0 +1,1632 @@
+{
+ "when_utc": "20261119-150345",
+ "template": "/mnt/data/templates/aiohttp/f0d74880deec",
+ "task": {
+  "repo": "aiohttp",
+  "repo_index": 0,
+  "dataset": "R2E-Gym/R2E-Gym-Lite",
+  "split": "train",
+  "dataset_row": 0,
+  "commit": "f0d74880deec8fcd982bce639c93c5e130d41198",
+  "docker_image": "namanjain12/aiohttp_final:f0d74880deec8fcd982bce639c93c5e130d41198"
+ },
+ "mem_mib": 3072,
+ "n": 16,
+ "hold_min": 10.0,
+ "gap_s": [
+  5.0,
+  40.0
+ ],
+ "serve_load_s": 5.3,
+ "pass": true,
+ "checks": [
+  {
+   "name": "docker reference: tests fail before fix, pass after",
+   "pass": true,
+   "detail": "0.0 -> 1.0"
+  },
+  {
+   "name": "single sandbox == docker on every step",
+   "pass": true,
+   "detail": "0 diffs"
+  },
+  {
+   "name": "16 concurrent sandboxes == docker on every step of every round",
+   "pass": true,
+   "detail": "0 diffs; rounds/sandbox [3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]"
+  },
+  {
+   "name": "each sandbox held >= 10.0 min",
+   "pass": true,
+   "detail": "13.5 min"
+  }
+ ],
+ "reference": [
+  {
+   "code": "Error: Exit code 1",
+   "tests": {
+    "TestUrlDispatcher.test_add_invalid_path": "PASSED",
+    "TestUrlDispatcher.test_add_route_invalid_method": "PASSED",
+    "TestUrlDispatcher.test_add_route_not_started_with_slash": "PASSED",
+    "TestUrlDispatcher.test_add_route_root": "PASSED",
+    "TestUrlDispatcher.test_add_route_simple": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_invalid_re": "FAILED",
+    "TestUrlDispatcher.test_add_route_with_re": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_and_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_including_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_not_match": "PASSED",
+    "TestUrlDispatcher.test_add_static": "PASSED",
+    "TestUrlDispatcher.test_add_url_escaping": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid1": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid2": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid3": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid4": "PASSED",
+    "TestUrlDispatcher.test_add_with_matchdict": "PASSED",
+    "TestUrlDispatcher.test_add_with_name": "PASSED",
+    "TestUrlDispatcher.test_add_with_tailing_slash": "PASSED",
+    "TestUrlDispatcher.test_any_method": "PASSED",
+    "TestUrlDispatcher.test_contains": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_dynamic": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_plain": "PASSED",
+    "TestUrlDispatcher.test_default_expect_handler": "PASSED",
+    "TestUrlDispatcher.test_double_add_url_with_the_same_name": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_non_ascii": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_two_part2": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_unquoted_path": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_with_static_part": "PASSED",
+    "TestUrlDispatcher.test_dynamic_not_match": "PASSED",
+    "TestUrlDispatcher.test_dynamic_repr": "PASSED",
+    "TestUrlDispatcher.test_dynamic_with_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_expect_handler_non_coroutine": "PASSED",
+    "TestUrlDispatcher.test_iter": "PASSED",
+    "TestUrlDispatcher.test_len": "PASSED",
+    "TestUrlDispatcher.test_match_second_result_in_table": "PASSED",
+    "TestUrlDispatcher.test_not_allowed_repr": "PASSED",
+    "TestUrlDispatcher.test_not_found_repr": "PASSED",
+    "TestUrlDispatcher.test_plain_not_match": "PASSED",
+    "TestUrlDispatcher.test_plain_repr": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_allowed": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_found": "PASSED",
+    "TestUrlDispatcher.test_register_route": "PASSED",
+    "TestUrlDispatcher.test_register_route_checks": "FAILED",
+    "TestUrlDispatcher.test_regular_match_info": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec_and_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_route_plain": "PASSED",
+    "TestUrlDispatcher.test_route_unknown_route_name": "PASSED",
+    "TestUrlDispatcher.test_route_with_qs": "PASSED",
+    "TestUrlDispatcher.test_routes_abc": "PASSED",
+    "TestUrlDispatcher.test_routes_view_contains": "PASSED",
+    "TestUrlDispatcher.test_routes_view_iter": "PASSED",
+    "TestUrlDispatcher.test_routes_view_len": "PASSED",
+    "TestUrlDispatcher.test_static_adds_slash": "PASSED",
+    "TestUrlDispatcher.test_static_dont_add_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_static_handle_again": "PASSED",
+    "TestUrlDispatcher.test_static_handle_eof": "PASSED",
+    "TestUrlDispatcher.test_static_handle_exception": "PASSED",
+    "TestUrlDispatcher.test_static_not_match": "PASSED",
+    "TestUrlDispatcher.test_static_repr": "PASSED",
+    "TestUrlDispatcher.test_system_route": "PASSED"
+   },
+   "reward": 0.0,
+   "step": "tests_before",
+   "secs": 2.708,
+   "out_len": 8492
+  },
+  {
+   "code": "0",
+   "text": "Here is a condensed view for file: /testbed/aiohttp/web_urldispatcher.py; [Note: Useful for understanding file structure in a concise manner. Please use specific view_range without concise cmd if you want to explore further into the relevant parts.]\n     1 import abc\n     2 import asyncio\n     3 \n     4 import keyword\n     5 import collections\n     6 import mimetypes\n     7 import re\n     8 import os\n     9 import inspect\n    10 \n    11 from collections.abc import Sized, Iterable, Container\n    12 from urllib.parse import urlencode, unquote\n    13 \n    14 from . import hdrs\n    15 from .abc import AbstractRouter, AbstractMatchInfo\n    16 from .protocol import HttpVersion11\n    17 from .web_exceptions import HTTPMethodNotAllowed, HTTPNotFound, HTTPNotModified\n    18 from .web_reqrep import StreamResponse\n    19 from .multidict import upstr\n    20 \n    21 \n    22 __all__ = ('UrlDispatcher', 'UrlMappingMatchInfo',\n    23            'Route', 'PlainRoute', 'DynamicRoute', 'StaticRoute')\n    24 \n    25 \n    26 class UrlMappingMatchInfo(dict, AbstractMatchInfo):\n    27 \n    28     def __init__(self, match_dict, route):\n    29         super().__init__(match_dict)\n    30         self._route = route\n    31 \n    32     @property\n    33     def handler(self):\n    34         return self._route.handler\n    35 \n    36     @property\n    37     def route(self):\n    38         return self._route\n    39 \n    40     def __repr__(self):\n    41         return \"<MatchInfo {}: {}>\".format(super().__repr__(), self._route)\n    42 \n    43 \n    44 @asyncio.coroutine\n    45 def _defaultExpectHandler(request):\n    46     \"\"\"Default handler for Except: 100-continue\"\"\"\n    47     if request.version == HttpVersion11:\n    48         request.transport.write(b\"HTTP/1.1 100 Continue\\r\\n\\r\\n\")\n    49 \n    50 \n    51 class Route(metaclass=abc.ABCMeta):\n    52 \n    53     def __init__(self, method, handler, name, *, expect_handler=None):\n    54 ... eliding lines 54-62 ...\n    63 \n    64     @property\n    65     def method(self):\n    66         return self._method\n    67 \n    68     @property\n    69     def handler(self):\n    70         return self._handler\n    71 \n    72     @property\n    73     def name(self):\n    74         return self._name\n    75 \n    76     @abc.abstractmethod  # pragma: no branch\n    77     def match(self, path):\n    78         \"\"\"Return dict with info for given path or\n    79         None if route cannot process path.\"\"\"\n    80 \n    81     @abc.abstractmethod  # pragma: no branch\n    82     def url(self, **kwargs):\n    83         \"\"\"Construct url for route with additional params.\"\"\"\n    84 \n    85     @asyncio.coroutine\n    86     def handle_expect_header(self, request):\n    87         return (yield from self._expect_handler(request))\n    88 \n    89     @staticmethod\n    90     def _append_query(url, query):\n    91 ... eliding lines 91-94 ...\n    95 \n    96 \n    97 class PlainRoute(Route):\n    98 \n    99     def __init__(self, method, handler, name, path, *, expect_handler=None):\n   100         super().__init__(method, handler, name, expect_handler=expect_handler)\n   101         self._path = path\n   102 \n   103     def match(self, path):\n   104         # string comparison is about 10 times faster than regexp matching\n   105 ... eliding lines 105-108 ...\n   109 \n   110     def url(self, *, query=None):\n   111         return self._append_query(self._path, query)\n   112 \n   113     def __repr__(self):\n   114 ... eliding lines 114-117 ...\n   118 \n   119 \n   120 class DynamicRoute(Route):\n   121 \n   122     def __init__(self, method, handler, name, pattern, formatter, *,\n   123                  expect_handler=None):\n   124         super().__init__(method, handler, name, expect_handler=expect_handler)\n   125         self._pattern = pattern\n   126         self._formatter = formatter\n   127 \n   128     def match(self, path):\n   129 ... eliding lines 129-133 ...\n   134 \n   135     def url(self, *, parts, query=None):\n   136         url = self._formatter.format_map(parts)\n   137         return self._append_query(url, query)\n   138 \n   139     def __repr__(self):\n   140 ... eliding lines 140-143 ...\n   144 \n   145 \n   146 class StaticRoute(Route):\n   147 \n   148     def __init__(self, name, prefix, directory, *,\n   149                  expect_handler=None, chunk_size=256*1024,\n   150                  response_factory=StreamResponse):\n   151 ... eliding lines 151-163 ...\n   164 \n   165     def match(self, path):\n   166         if not path.startswith(self._prefix):\n   167             return None\n   168         return {'filename': path[self._prefix_len:]}\n   169 \n   170     def url(self, *, filename, query=None):\n   171 ... eliding lines 171-174 ...\n   175 \n   176     def _sendfile_cb(self, fut, out_fd, in_fd, offset, count, loop,\n   177                      registered):\n   178 ... eliding lines 178-194 ...\n   195 \n   196     @asyncio.coroutine\n   197     def _sendfile_system(self, req, resp, fobj, count):\n   198 ... eliding lines 198-227 ...\n   228 \n   229     @asyncio.coroutine\n   230     def _sendfile_fallback(self, req, resp, fobj, count):\n   231 ... eliding lines 231-251 ...\n   252 \n   253     if hasattr(os, \"sendfile\"):  # pragma: no cover\n   254         _sendfile = _sendfile_system\n   255     else:  # pragma: no cover\n   256         _sendfile = _sendfile_fallback\n   257 \n   258     @asyncio.coroutine\n   259     def handle(self, request):\n   260 ... eliding lines 260-291 ...\n   292 \n   293     def __repr__(self):\n   294 ... eliding lines 294-297 ...\n   298 \n   299 \n   300 class SystemRoute(Route):\n   301 \n   302     def __init__(self, status, reason):\n   303         super().__init__(hdrs.METH_ANY, None, None)\n   304         self._status = status\n   305         self._reason = reason\n   306 \n   307     def url(self, **kwargs):\n   308         raise RuntimeError(\".url() is not allowed for SystemRoute\")\n   309 \n   310     def match(self, path):\n   311         return None\n   312 \n   313     @property\n   314     def status(self):\n   315         return self._status\n   316 \n   317     @property\n   318     def reason(self):\n   319         return self._reason\n   320 \n   321     def __repr__(self):\n   322         return \"<SystemRoute {status}: {reason}>\".format(status=self._status,\n   323                                                          reason=self._reason)\n   324 \n   325 \n   326 class _NotFoundMatchInfo(UrlMappingMatchInfo):\n   327 \n   328     route = SystemRoute(404, 'Not Found')\n   329 \n   330     def __init__(self):\n   331         super().__init__({}, None)\n   332 \n   333     @property\n   334     def handler(self):\n   335         return self._not_found\n   336 \n   337     @asyncio.coroutine\n   338     def _not_found(self, request):\n   339         raise HTTPNotFound()\n   340 \n   341     def __repr__(self):\n   342         return \"<MatchInfo: not found>\"\n   343 \n   344 \n   345 class _MethodNotAllowedMatchInfo(UrlMappingMatchInfo):\n   346 \n   347     route = SystemRoute(405, 'Method Not Allowed')\n   348 \n   349     def __init__(self, method, allowed_methods):\n   350         super().__init__({}, None)\n   351         self._method = method\n   352         self._allowed_methods = allowed_methods\n   353 \n   354     @property\n   355     def handler(self):\n   356         return self._not_allowed\n   357 \n   358     @asyncio.coroutine\n   359     def _not_allowed(self, request):\n   360         raise HTTPMethodNotAllowed(self._method, self._allowed_methods)\n   361 \n   362     def __repr__(self):\n   363         return (\"<MatchInfo: method {} is not allowed (allowed methods: {}>\"\n   364                 .format(self._method,\n   365                         ', '.join(sorted(self._allowed_methods))))\n   366 \n   367 \n   368 class RoutesView(Sized, Iterable, Container):\n   369 \n   370     __slots__ = '_urls'\n   371 \n   372     def __init__(self, urls):\n   373         self._urls = urls\n   374 \n   375     def __len__(self):\n   376         return len(self._urls)\n   377 \n   378     def __iter__(self):\n   379         yield from self._urls\n   380 \n   381     def __contains__(self, route):\n   382         return route in self._urls\n   383 \n   384 \n   385 class UrlDispatcher(AbstractRouter, collections.abc.Mapping):\n   386 \n   387     DYN = re.compile(r'^\\{(?P<var>[a-zA-Z][_a-zA-Z0-9]*)\\}$')\n   388     DYN_WITH_RE = re.compile(\n   389         r'^\\{(?P<var>[a-zA-Z][_a-zA-Z0-9]*):(?P<re>.+)\\}$')\n   390     GOOD = r'[^{}/]+'\n   391     ROUTE_RE = re.compile(r'(\\{[_a-zA-Z][^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\})')\n   392 \n   393     METHODS = {hdrs.METH_ANY, hdrs.METH_POST,\n   394                hdrs.METH_GET, hdrs.METH_PUT, hdrs.METH_DELETE,\n   395                hdrs.METH_PATCH, hdrs.METH_HEAD, hdrs.METH_OPTIONS}\n   396 \n   397     def __init__(self):\n   398         super().__init__()\n   399         self._urls = []\n   400         self._routes = {}\n   401 \n   402     @asyncio.coroutine\n   403     def resolve(self, request):\n   404 ... eliding lines 404-425 ...\n   426 \n   427     def __iter__(self):\n   428         return iter(self._routes)\n   429 \n   430     def __len__(self):\n   431         return len(self._routes)\n   432 \n   433     def __contains__(self, name):\n   434         return name in self._routes\n   435 \n   436     def __getitem__(self, name):\n   437         return self._routes[name]\n   438 \n   439     def routes(self):\n   440         return RoutesView(self._urls)\n   441 \n   442     def register_route(self, route):\n   443 ... eliding lines 443-457 ...\n   458 \n   459     def add_route(self, method, path, handler,\n   460                   *, name=None, expect_handler=None):\n   461 \n   462 ... eliding lines 462-510 ...\n   511 \n   512     def add_static(self, prefix, path, *, name=None, expect_handler=None,\n   513                    chunk_size=256*1024, response_factory=StreamResponse):\n   514 ... eliding lines 514-527 ...\n",
+   "step": "view",
+   "secs": 0.3,
+   "out_len": 9847
+  },
+  {
+   "code": "0",
+   "text": "./aiohttp/abc.py (3 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/connector.py (40 matches)\n./aiohttp/errors.py (9 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/multidict.py (52 matches)\n./aiohttp/multipart.py (68 matches)\n./aiohttp/parsers.py (34 matches)\n./aiohttp/protocol.py (37 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/signals.py (8 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web.py (26 matches)\n./aiohttp/web_exceptions.py (3 matches)\n./aiohttp/web_reqrep.py (74 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/web_ws.py (23 matches)\n./aiohttp/websocket.py (11 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/wsgi.py (9 matches)\nEnd of matches for \"def \" in /testbed/aiohttp\nFound 660 matches for \"def \" in /testbed/aiohttp:",
+   "step": "search",
+   "secs": 0.109,
+   "out_len": 903
+  },
+  {
+   "code": "0",
+   "step": "put_patch",
+   "secs": 0.005,
+   "out_len": 0
+  },
+  {
+   "code": "0",
+   "text": "",
+   "step": "apply",
+   "secs": 0.077,
+   "out_len": 0
+  },
+  {
+   "code": "0",
+   "text": "File created at /testbed/zb_probe.py. Here's the result of running `cat -n` on /testbed/zb_probe.py:\n     1\tprint(6*7)\nReview the file and make sure that it is as expected. Edit the file if necessary.\n",
+   "step": "create",
+   "secs": 0.144,
+   "out_len": 201
+  },
+  {
+   "code": "0",
+   "text": "42\n",
+   "step": "run_probe",
+   "secs": 0.092,
+   "out_len": 3
+  },
+  {
+   "code": "Error: Exit code 1",
+   "tests": {
+    "TestUrlDispatcher.test_add_invalid_path": "PASSED",
+    "TestUrlDispatcher.test_add_route_invalid_method": "PASSED",
+    "TestUrlDispatcher.test_add_route_not_started_with_slash": "PASSED",
+    "TestUrlDispatcher.test_add_route_root": "PASSED",
+    "TestUrlDispatcher.test_add_route_simple": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_invalid_re": "FAILED",
+    "TestUrlDispatcher.test_add_route_with_re": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_and_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_including_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_not_match": "PASSED",
+    "TestUrlDispatcher.test_add_static": "PASSED",
+    "TestUrlDispatcher.test_add_url_escaping": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid1": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid2": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid3": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid4": "PASSED",
+    "TestUrlDispatcher.test_add_with_matchdict": "PASSED",
+    "TestUrlDispatcher.test_add_with_name": "PASSED",
+    "TestUrlDispatcher.test_add_with_tailing_slash": "PASSED",
+    "TestUrlDispatcher.test_any_method": "PASSED",
+    "TestUrlDispatcher.test_contains": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_dynamic": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_plain": "PASSED",
+    "TestUrlDispatcher.test_default_expect_handler": "PASSED",
+    "TestUrlDispatcher.test_double_add_url_with_the_same_name": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_non_ascii": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_two_part2": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_unquoted_path": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_with_static_part": "PASSED",
+    "TestUrlDispatcher.test_dynamic_not_match": "PASSED",
+    "TestUrlDispatcher.test_dynamic_repr": "PASSED",
+    "TestUrlDispatcher.test_dynamic_with_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_expect_handler_non_coroutine": "PASSED",
+    "TestUrlDispatcher.test_iter": "PASSED",
+    "TestUrlDispatcher.test_len": "PASSED",
+    "TestUrlDispatcher.test_match_second_result_in_table": "PASSED",
+    "TestUrlDispatcher.test_not_allowed_repr": "PASSED",
+    "TestUrlDispatcher.test_not_found_repr": "PASSED",
+    "TestUrlDispatcher.test_plain_not_match": "PASSED",
+    "TestUrlDispatcher.test_plain_repr": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_allowed": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_found": "PASSED",
+    "TestUrlDispatcher.test_register_route": "PASSED",
+    "TestUrlDispatcher.test_register_route_checks": "PASSED",
+    "TestUrlDispatcher.test_regular_match_info": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec_and_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_route_plain": "PASSED",
+    "TestUrlDispatcher.test_route_unknown_route_name": "PASSED",
+    "TestUrlDispatcher.test_route_with_qs": "PASSED",
+    "TestUrlDispatcher.test_routes_abc": "PASSED",
+    "TestUrlDispatcher.test_routes_view_contains": "PASSED",
+    "TestUrlDispatcher.test_routes_view_iter": "PASSED",
+    "TestUrlDispatcher.test_routes_view_len": "PASSED",
+    "TestUrlDispatcher.test_static_adds_slash": "PASSED",
+    "TestUrlDispatcher.test_static_dont_add_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_static_handle_again": "PASSED",
+    "TestUrlDispatcher.test_static_handle_eof": "PASSED",
+    "TestUrlDispatcher.test_static_handle_exception": "PASSED",
+    "TestUrlDispatcher.test_static_not_match": "PASSED",
+    "TestUrlDispatcher.test_static_repr": "PASSED",
+    "TestUrlDispatcher.test_system_route": "PASSED"
+   },
+   "reward": 1.0,
+   "step": "tests_after",
+   "secs": 0.667,
+   "out_len": 6719
+  },
+  {
+   "code": "0",
+   "text": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+   "step": "diffstat",
+   "secs": 0.181,
+   "out_len": 262
+  }
+ ],
+ "single": [
+  {
+   "code": "Error: Exit code 1",
+   "tests": {
+    "TestUrlDispatcher.test_add_invalid_path": "PASSED",
+    "TestUrlDispatcher.test_add_route_invalid_method": "PASSED",
+    "TestUrlDispatcher.test_add_route_not_started_with_slash": "PASSED",
+    "TestUrlDispatcher.test_add_route_root": "PASSED",
+    "TestUrlDispatcher.test_add_route_simple": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_invalid_re": "FAILED",
+    "TestUrlDispatcher.test_add_route_with_re": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_and_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_including_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_not_match": "PASSED",
+    "TestUrlDispatcher.test_add_static": "PASSED",
+    "TestUrlDispatcher.test_add_url_escaping": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid1": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid2": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid3": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid4": "PASSED",
+    "TestUrlDispatcher.test_add_with_matchdict": "PASSED",
+    "TestUrlDispatcher.test_add_with_name": "PASSED",
+    "TestUrlDispatcher.test_add_with_tailing_slash": "PASSED",
+    "TestUrlDispatcher.test_any_method": "PASSED",
+    "TestUrlDispatcher.test_contains": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_dynamic": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_plain": "PASSED",
+    "TestUrlDispatcher.test_default_expect_handler": "PASSED",
+    "TestUrlDispatcher.test_double_add_url_with_the_same_name": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_non_ascii": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_two_part2": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_unquoted_path": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_with_static_part": "PASSED",
+    "TestUrlDispatcher.test_dynamic_not_match": "PASSED",
+    "TestUrlDispatcher.test_dynamic_repr": "PASSED",
+    "TestUrlDispatcher.test_dynamic_with_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_expect_handler_non_coroutine": "PASSED",
+    "TestUrlDispatcher.test_iter": "PASSED",
+    "TestUrlDispatcher.test_len": "PASSED",
+    "TestUrlDispatcher.test_match_second_result_in_table": "PASSED",
+    "TestUrlDispatcher.test_not_allowed_repr": "PASSED",
+    "TestUrlDispatcher.test_not_found_repr": "PASSED",
+    "TestUrlDispatcher.test_plain_not_match": "PASSED",
+    "TestUrlDispatcher.test_plain_repr": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_allowed": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_found": "PASSED",
+    "TestUrlDispatcher.test_register_route": "PASSED",
+    "TestUrlDispatcher.test_register_route_checks": "FAILED",
+    "TestUrlDispatcher.test_regular_match_info": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec_and_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_route_plain": "PASSED",
+    "TestUrlDispatcher.test_route_unknown_route_name": "PASSED",
+    "TestUrlDispatcher.test_route_with_qs": "PASSED",
+    "TestUrlDispatcher.test_routes_abc": "PASSED",
+    "TestUrlDispatcher.test_routes_view_contains": "PASSED",
+    "TestUrlDispatcher.test_routes_view_iter": "PASSED",
+    "TestUrlDispatcher.test_routes_view_len": "PASSED",
+    "TestUrlDispatcher.test_static_adds_slash": "PASSED",
+    "TestUrlDispatcher.test_static_dont_add_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_static_handle_again": "PASSED",
+    "TestUrlDispatcher.test_static_handle_eof": "PASSED",
+    "TestUrlDispatcher.test_static_handle_exception": "PASSED",
+    "TestUrlDispatcher.test_static_not_match": "PASSED",
+    "TestUrlDispatcher.test_static_repr": "PASSED",
+    "TestUrlDispatcher.test_system_route": "PASSED"
+   },
+   "reward": 0.0,
+   "step": "tests_before",
+   "secs": 1.734,
+   "out_len": 8492
+  },
+  {
+   "code": "0",
+   "text": "Here is a condensed view for file: /testbed/aiohttp/web_urldispatcher.py; [Note: Useful for understanding file structure in a concise manner. Please use specific view_range without concise cmd if you want to explore further into the relevant parts.]\n     1 import abc\n     2 import asyncio\n     3 \n     4 import keyword\n     5 import collections\n     6 import mimetypes\n     7 import re\n     8 import os\n     9 import inspect\n    10 \n    11 from collections.abc import Sized, Iterable, Container\n    12 from urllib.parse import urlencode, unquote\n    13 \n    14 from . import hdrs\n    15 from .abc import AbstractRouter, AbstractMatchInfo\n    16 from .protocol import HttpVersion11\n    17 from .web_exceptions import HTTPMethodNotAllowed, HTTPNotFound, HTTPNotModified\n    18 from .web_reqrep import StreamResponse\n    19 from .multidict import upstr\n    20 \n    21 \n    22 __all__ = ('UrlDispatcher', 'UrlMappingMatchInfo',\n    23            'Route', 'PlainRoute', 'DynamicRoute', 'StaticRoute')\n    24 \n    25 \n    26 class UrlMappingMatchInfo(dict, AbstractMatchInfo):\n    27 \n    28     def __init__(self, match_dict, route):\n    29         super().__init__(match_dict)\n    30         self._route = route\n    31 \n    32     @property\n    33     def handler(self):\n    34         return self._route.handler\n    35 \n    36     @property\n    37     def route(self):\n    38         return self._route\n    39 \n    40     def __repr__(self):\n    41         return \"<MatchInfo {}: {}>\".format(super().__repr__(), self._route)\n    42 \n    43 \n    44 @asyncio.coroutine\n    45 def _defaultExpectHandler(request):\n    46     \"\"\"Default handler for Except: 100-continue\"\"\"\n    47     if request.version == HttpVersion11:\n    48         request.transport.write(b\"HTTP/1.1 100 Continue\\r\\n\\r\\n\")\n    49 \n    50 \n    51 class Route(metaclass=abc.ABCMeta):\n    52 \n    53     def __init__(self, method, handler, name, *, expect_handler=None):\n    54 ... eliding lines 54-62 ...\n    63 \n    64     @property\n    65     def method(self):\n    66         return self._method\n    67 \n    68     @property\n    69     def handler(self):\n    70         return self._handler\n    71 \n    72     @property\n    73     def name(self):\n    74         return self._name\n    75 \n    76     @abc.abstractmethod  # pragma: no branch\n    77     def match(self, path):\n    78         \"\"\"Return dict with info for given path or\n    79         None if route cannot process path.\"\"\"\n    80 \n    81     @abc.abstractmethod  # pragma: no branch\n    82     def url(self, **kwargs):\n    83         \"\"\"Construct url for route with additional params.\"\"\"\n    84 \n    85     @asyncio.coroutine\n    86     def handle_expect_header(self, request):\n    87         return (yield from self._expect_handler(request))\n    88 \n    89     @staticmethod\n    90     def _append_query(url, query):\n    91 ... eliding lines 91-94 ...\n    95 \n    96 \n    97 class PlainRoute(Route):\n    98 \n    99     def __init__(self, method, handler, name, path, *, expect_handler=None):\n   100         super().__init__(method, handler, name, expect_handler=expect_handler)\n   101         self._path = path\n   102 \n   103     def match(self, path):\n   104         # string comparison is about 10 times faster than regexp matching\n   105 ... eliding lines 105-108 ...\n   109 \n   110     def url(self, *, query=None):\n   111         return self._append_query(self._path, query)\n   112 \n   113     def __repr__(self):\n   114 ... eliding lines 114-117 ...\n   118 \n   119 \n   120 class DynamicRoute(Route):\n   121 \n   122     def __init__(self, method, handler, name, pattern, formatter, *,\n   123                  expect_handler=None):\n   124         super().__init__(method, handler, name, expect_handler=expect_handler)\n   125         self._pattern = pattern\n   126         self._formatter = formatter\n   127 \n   128     def match(self, path):\n   129 ... eliding lines 129-133 ...\n   134 \n   135     def url(self, *, parts, query=None):\n   136         url = self._formatter.format_map(parts)\n   137         return self._append_query(url, query)\n   138 \n   139     def __repr__(self):\n   140 ... eliding lines 140-143 ...\n   144 \n   145 \n   146 class StaticRoute(Route):\n   147 \n   148     def __init__(self, name, prefix, directory, *,\n   149                  expect_handler=None, chunk_size=256*1024,\n   150                  response_factory=StreamResponse):\n   151 ... eliding lines 151-163 ...\n   164 \n   165     def match(self, path):\n   166         if not path.startswith(self._prefix):\n   167             return None\n   168         return {'filename': path[self._prefix_len:]}\n   169 \n   170     def url(self, *, filename, query=None):\n   171 ... eliding lines 171-174 ...\n   175 \n   176     def _sendfile_cb(self, fut, out_fd, in_fd, offset, count, loop,\n   177                      registered):\n   178 ... eliding lines 178-194 ...\n   195 \n   196     @asyncio.coroutine\n   197     def _sendfile_system(self, req, resp, fobj, count):\n   198 ... eliding lines 198-227 ...\n   228 \n   229     @asyncio.coroutine\n   230     def _sendfile_fallback(self, req, resp, fobj, count):\n   231 ... eliding lines 231-251 ...\n   252 \n   253     if hasattr(os, \"sendfile\"):  # pragma: no cover\n   254         _sendfile = _sendfile_system\n   255     else:  # pragma: no cover\n   256         _sendfile = _sendfile_fallback\n   257 \n   258     @asyncio.coroutine\n   259     def handle(self, request):\n   260 ... eliding lines 260-291 ...\n   292 \n   293     def __repr__(self):\n   294 ... eliding lines 294-297 ...\n   298 \n   299 \n   300 class SystemRoute(Route):\n   301 \n   302     def __init__(self, status, reason):\n   303         super().__init__(hdrs.METH_ANY, None, None)\n   304         self._status = status\n   305         self._reason = reason\n   306 \n   307     def url(self, **kwargs):\n   308         raise RuntimeError(\".url() is not allowed for SystemRoute\")\n   309 \n   310     def match(self, path):\n   311         return None\n   312 \n   313     @property\n   314     def status(self):\n   315         return self._status\n   316 \n   317     @property\n   318     def reason(self):\n   319         return self._reason\n   320 \n   321     def __repr__(self):\n   322         return \"<SystemRoute {status}: {reason}>\".format(status=self._status,\n   323                                                          reason=self._reason)\n   324 \n   325 \n   326 class _NotFoundMatchInfo(UrlMappingMatchInfo):\n   327 \n   328     route = SystemRoute(404, 'Not Found')\n   329 \n   330     def __init__(self):\n   331         super().__init__({}, None)\n   332 \n   333     @property\n   334     def handler(self):\n   335         return self._not_found\n   336 \n   337     @asyncio.coroutine\n   338     def _not_found(self, request):\n   339         raise HTTPNotFound()\n   340 \n   341     def __repr__(self):\n   342         return \"<MatchInfo: not found>\"\n   343 \n   344 \n   345 class _MethodNotAllowedMatchInfo(UrlMappingMatchInfo):\n   346 \n   347     route = SystemRoute(405, 'Method Not Allowed')\n   348 \n   349     def __init__(self, method, allowed_methods):\n   350         super().__init__({}, None)\n   351         self._method = method\n   352         self._allowed_methods = allowed_methods\n   353 \n   354     @property\n   355     def handler(self):\n   356         return self._not_allowed\n   357 \n   358     @asyncio.coroutine\n   359     def _not_allowed(self, request):\n   360         raise HTTPMethodNotAllowed(self._method, self._allowed_methods)\n   361 \n   362     def __repr__(self):\n   363         return (\"<MatchInfo: method {} is not allowed (allowed methods: {}>\"\n   364                 .format(self._method,\n   365                         ', '.join(sorted(self._allowed_methods))))\n   366 \n   367 \n   368 class RoutesView(Sized, Iterable, Container):\n   369 \n   370     __slots__ = '_urls'\n   371 \n   372     def __init__(self, urls):\n   373         self._urls = urls\n   374 \n   375     def __len__(self):\n   376         return len(self._urls)\n   377 \n   378     def __iter__(self):\n   379         yield from self._urls\n   380 \n   381     def __contains__(self, route):\n   382         return route in self._urls\n   383 \n   384 \n   385 class UrlDispatcher(AbstractRouter, collections.abc.Mapping):\n   386 \n   387     DYN = re.compile(r'^\\{(?P<var>[a-zA-Z][_a-zA-Z0-9]*)\\}$')\n   388     DYN_WITH_RE = re.compile(\n   389         r'^\\{(?P<var>[a-zA-Z][_a-zA-Z0-9]*):(?P<re>.+)\\}$')\n   390     GOOD = r'[^{}/]+'\n   391     ROUTE_RE = re.compile(r'(\\{[_a-zA-Z][^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\})')\n   392 \n   393     METHODS = {hdrs.METH_ANY, hdrs.METH_POST,\n   394                hdrs.METH_GET, hdrs.METH_PUT, hdrs.METH_DELETE,\n   395                hdrs.METH_PATCH, hdrs.METH_HEAD, hdrs.METH_OPTIONS}\n   396 \n   397     def __init__(self):\n   398         super().__init__()\n   399         self._urls = []\n   400         self._routes = {}\n   401 \n   402     @asyncio.coroutine\n   403     def resolve(self, request):\n   404 ... eliding lines 404-425 ...\n   426 \n   427     def __iter__(self):\n   428         return iter(self._routes)\n   429 \n   430     def __len__(self):\n   431         return len(self._routes)\n   432 \n   433     def __contains__(self, name):\n   434         return name in self._routes\n   435 \n   436     def __getitem__(self, name):\n   437         return self._routes[name]\n   438 \n   439     def routes(self):\n   440         return RoutesView(self._urls)\n   441 \n   442     def register_route(self, route):\n   443 ... eliding lines 443-457 ...\n   458 \n   459     def add_route(self, method, path, handler,\n   460                   *, name=None, expect_handler=None):\n   461 \n   462 ... eliding lines 462-510 ...\n   511 \n   512     def add_static(self, prefix, path, *, name=None, expect_handler=None,\n   513                    chunk_size=256*1024, response_factory=StreamResponse):\n   514 ... eliding lines 514-527 ...\n",
+   "step": "view",
+   "secs": 0.241,
+   "out_len": 9847
+  },
+  {
+   "code": "0",
+   "text": "./aiohttp/abc.py (3 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/connector.py (40 matches)\n./aiohttp/errors.py (9 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/multidict.py (52 matches)\n./aiohttp/multipart.py (68 matches)\n./aiohttp/parsers.py (34 matches)\n./aiohttp/protocol.py (37 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/signals.py (8 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web.py (26 matches)\n./aiohttp/web_exceptions.py (3 matches)\n./aiohttp/web_reqrep.py (74 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/web_ws.py (23 matches)\n./aiohttp/websocket.py (11 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/wsgi.py (9 matches)\nEnd of matches for \"def \" in /testbed/aiohttp\nFound 660 matches for \"def \" in /testbed/aiohttp:",
+   "step": "search",
+   "secs": 0.064,
+   "out_len": 903
+  },
+  {
+   "code": "0",
+   "step": "put_patch",
+   "secs": 0.047,
+   "out_len": 0
+  },
+  {
+   "code": "0",
+   "text": "",
+   "step": "apply",
+   "secs": 0.009,
+   "out_len": 0
+  },
+  {
+   "code": "0",
+   "text": "File created at /testbed/zb_probe.py. Here's the result of running `cat -n` on /testbed/zb_probe.py:\n     1\tprint(6*7)\nReview the file and make sure that it is as expected. Edit the file if necessary.\n",
+   "step": "create",
+   "secs": 0.091,
+   "out_len": 201
+  },
+  {
+   "code": "0",
+   "text": "42\n",
+   "step": "run_probe",
+   "secs": 0.025,
+   "out_len": 3
+  },
+  {
+   "code": "Error: Exit code 1",
+   "tests": {
+    "TestUrlDispatcher.test_add_invalid_path": "PASSED",
+    "TestUrlDispatcher.test_add_route_invalid_method": "PASSED",
+    "TestUrlDispatcher.test_add_route_not_started_with_slash": "PASSED",
+    "TestUrlDispatcher.test_add_route_root": "PASSED",
+    "TestUrlDispatcher.test_add_route_simple": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_invalid_re": "FAILED",
+    "TestUrlDispatcher.test_add_route_with_re": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_and_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_including_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_not_match": "PASSED",
+    "TestUrlDispatcher.test_add_static": "PASSED",
+    "TestUrlDispatcher.test_add_url_escaping": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid1": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid2": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid3": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid4": "PASSED",
+    "TestUrlDispatcher.test_add_with_matchdict": "PASSED",
+    "TestUrlDispatcher.test_add_with_name": "PASSED",
+    "TestUrlDispatcher.test_add_with_tailing_slash": "PASSED",
+    "TestUrlDispatcher.test_any_method": "PASSED",
+    "TestUrlDispatcher.test_contains": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_dynamic": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_plain": "PASSED",
+    "TestUrlDispatcher.test_default_expect_handler": "PASSED",
+    "TestUrlDispatcher.test_double_add_url_with_the_same_name": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_non_ascii": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_two_part2": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_unquoted_path": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_with_static_part": "PASSED",
+    "TestUrlDispatcher.test_dynamic_not_match": "PASSED",
+    "TestUrlDispatcher.test_dynamic_repr": "PASSED",
+    "TestUrlDispatcher.test_dynamic_with_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_expect_handler_non_coroutine": "PASSED",
+    "TestUrlDispatcher.test_iter": "PASSED",
+    "TestUrlDispatcher.test_len": "PASSED",
+    "TestUrlDispatcher.test_match_second_result_in_table": "PASSED",
+    "TestUrlDispatcher.test_not_allowed_repr": "PASSED",
+    "TestUrlDispatcher.test_not_found_repr": "PASSED",
+    "TestUrlDispatcher.test_plain_not_match": "PASSED",
+    "TestUrlDispatcher.test_plain_repr": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_allowed": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_found": "PASSED",
+    "TestUrlDispatcher.test_register_route": "PASSED",
+    "TestUrlDispatcher.test_register_route_checks": "PASSED",
+    "TestUrlDispatcher.test_regular_match_info": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec_and_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_route_plain": "PASSED",
+    "TestUrlDispatcher.test_route_unknown_route_name": "PASSED",
+    "TestUrlDispatcher.test_route_with_qs": "PASSED",
+    "TestUrlDispatcher.test_routes_abc": "PASSED",
+    "TestUrlDispatcher.test_routes_view_contains": "PASSED",
+    "TestUrlDispatcher.test_routes_view_iter": "PASSED",
+    "TestUrlDispatcher.test_routes_view_len": "PASSED",
+    "TestUrlDispatcher.test_static_adds_slash": "PASSED",
+    "TestUrlDispatcher.test_static_dont_add_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_static_handle_again": "PASSED",
+    "TestUrlDispatcher.test_static_handle_eof": "PASSED",
+    "TestUrlDispatcher.test_static_handle_exception": "PASSED",
+    "TestUrlDispatcher.test_static_not_match": "PASSED",
+    "TestUrlDispatcher.test_static_repr": "PASSED",
+    "TestUrlDispatcher.test_system_route": "PASSED"
+   },
+   "reward": 1.0,
+   "step": "tests_after",
+   "secs": 0.712,
+   "out_len": 6719
+  },
+  {
+   "code": "0",
+   "text": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+   "step": "diffstat",
+   "secs": 0.094,
+   "out_len": 262
+  }
+ ],
+ "single_diffs": [],
+ "concurrent": {
+  "13": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "11": {
+   "rounds": 3,
+   "diffs": []
+  },
+  "14": {
+   "rounds": 3,
+   "diffs": []
+  },
+  "3": {
+   "rounds": 3,
+   "diffs": []
+  },
+  "8": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "10": {
+   "rounds": 3,
+   "diffs": []
+  },
+  "4": {
+   "rounds": 3,
+   "diffs": []
+  },
+  "2": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "6": {
+   "rounds": 3,
+   "diffs": []
+  },
+  "12": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "1": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "0": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "7": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "15": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "9": {
+   "rounds": 4,
+   "diffs": []
+  },
+  "5": {
+   "rounds": 4,
+   "diffs": []
+  }
+ },
+ "serve_mem_kB": [
+  {
+   "t": 0.0,
+   "Rss": 5284,
+   "Pss": 2986,
+   "Private_Dirty": 1440,
+   "Anonymous": 1436
+  },
+  {
+   "t": 5.0,
+   "Rss": 128456,
+   "Pss": 18010,
+   "Private_Dirty": 9096,
+   "Anonymous": 8916
+  },
+  {
+   "t": 10.0,
+   "Rss": 128456,
+   "Pss": 18010,
+   "Private_Dirty": 9096,
+   "Anonymous": 8916
+  },
+  {
+   "t": 15.0,
+   "Rss": 387020,
+   "Pss": 191819,
+   "Private_Dirty": 124000,
+   "Anonymous": 118792
+  },
+  {
+   "t": 20.0,
+   "Rss": 875560,
+   "Pss": 427733,
+   "Private_Dirty": 356488,
+   "Anonymous": 349716
+  },
+  {
+   "t": 25.1,
+   "Rss": 1420748,
+   "Pss": 679600,
+   "Private_Dirty": 604288,
+   "Anonymous": 599540
+  },
+  {
+   "t": 30.1,
+   "Rss": 1468432,
+   "Pss": 712538,
+   "Private_Dirty": 638612,
+   "Anonymous": 634136
+  },
+  {
+   "t": 35.1,
+   "Rss": 1581436,
+   "Pss": 765478,
+   "Private_Dirty": 690608,
+   "Anonymous": 686496
+  },
+  {
+   "t": 40.2,
+   "Rss": 1866988,
+   "Pss": 890930,
+   "Private_Dirty": 815968,
+   "Anonymous": 808528
+  },
+  {
+   "t": 45.2,
+   "Rss": 1920532,
+   "Pss": 923614,
+   "Private_Dirty": 847524,
+   "Anonymous": 843548
+  },
+  {
+   "t": 50.3,
+   "Rss": 1926064,
+   "Pss": 924785,
+   "Private_Dirty": 848708,
+   "Anonymous": 844144
+  },
+  {
+   "t": 55.3,
+   "Rss": 1932556,
+   "Pss": 925210,
+   "Private_Dirty": 848580,
+   "Anonymous": 844596
+  },
+  {
+   "t": 60.4,
+   "Rss": 1933780,
+   "Pss": 925238,
+   "Private_Dirty": 848600,
+   "Anonymous": 844624
+  },
+  {
+   "t": 65.4,
+   "Rss": 1937564,
+   "Pss": 925458,
+   "Private_Dirty": 848808,
+   "Anonymous": 844852
+  },
+  {
+   "t": 70.5,
+   "Rss": 1938140,
+   "Pss": 925486,
+   "Private_Dirty": 848836,
+   "Anonymous": 844880
+  },
+  {
+   "t": 75.5,
+   "Rss": 1938780,
+   "Pss": 925538,
+   "Private_Dirty": 848888,
+   "Anonymous": 844932
+  },
+  {
+   "t": 80.6,
+   "Rss": 1949088,
+   "Pss": 929570,
+   "Private_Dirty": 849472,
+   "Anonymous": 845564
+  },
+  {
+   "t": 85.6,
+   "Rss": 1953432,
+   "Pss": 929862,
+   "Private_Dirty": 849768,
+   "Anonymous": 845860
+  },
+  {
+   "t": 90.6,
+   "Rss": 1953432,
+   "Pss": 929886,
+   "Private_Dirty": 849792,
+   "Anonymous": 845884
+  },
+  {
+   "t": 95.7,
+   "Rss": 1961352,
+   "Pss": 930374,
+   "Private_Dirty": 850280,
+   "Anonymous": 846364
+  },
+  {
+   "t": 100.7,
+   "Rss": 1964928,
+   "Pss": 930602,
+   "Private_Dirty": 850508,
+   "Anonymous": 846592
+  },
+  {
+   "t": 105.8,
+   "Rss": 1972088,
+   "Pss": 931090,
+   "Private_Dirty": 851000,
+   "Anonymous": 847084
+  },
+  {
+   "t": 110.8,
+   "Rss": 1972088,
+   "Pss": 931090,
+   "Private_Dirty": 851000,
+   "Anonymous": 847084
+  },
+  {
+   "t": 115.9,
+   "Rss": 1981112,
+   "Pss": 932094,
+   "Private_Dirty": 851560,
+   "Anonymous": 847644
+  },
+  {
+   "t": 120.9,
+   "Rss": 1981564,
+   "Pss": 932142,
+   "Private_Dirty": 851608,
+   "Anonymous": 847692
+  },
+  {
+   "t": 126.0,
+   "Rss": 1990592,
+   "Pss": 932714,
+   "Private_Dirty": 852140,
+   "Anonymous": 848260
+  },
+  {
+   "t": 131.0,
+   "Rss": 1997592,
+   "Pss": 933154,
+   "Private_Dirty": 852600,
+   "Anonymous": 848728
+  },
+  {
+   "t": 136.1,
+   "Rss": 2002308,
+   "Pss": 933586,
+   "Private_Dirty": 853056,
+   "Anonymous": 849168
+  },
+  {
+   "t": 141.1,
+   "Rss": 2005896,
+   "Pss": 933810,
+   "Private_Dirty": 853368,
+   "Anonymous": 849396
+  },
+  {
+   "t": 146.2,
+   "Rss": 2022180,
+   "Pss": 949626,
+   "Private_Dirty": 869048,
+   "Anonymous": 850028
+  },
+  {
+   "t": 151.2,
+   "Rss": 2022260,
+   "Pss": 949830,
+   "Private_Dirty": 869252,
+   "Anonymous": 850240
+  },
+  {
+   "t": 156.2,
+   "Rss": 2038060,
+   "Pss": 950462,
+   "Private_Dirty": 854684,
+   "Anonymous": 850864
+  },
+  {
+   "t": 161.3,
+   "Rss": 2038144,
+   "Pss": 950542,
+   "Private_Dirty": 854724,
+   "Anonymous": 850940
+  },
+  {
+   "t": 166.3,
+   "Rss": 2057628,
+   "Pss": 951286,
+   "Private_Dirty": 855448,
+   "Anonymous": 851700
+  },
+  {
+   "t": 171.4,
+   "Rss": 2073532,
+   "Pss": 951930,
+   "Private_Dirty": 856108,
+   "Anonymous": 852344
+  },
+  {
+   "t": 176.4,
+   "Rss": 2089424,
+   "Pss": 952486,
+   "Private_Dirty": 856664,
+   "Anonymous": 852900
+  },
+  {
+   "t": 181.5,
+   "Rss": 2089508,
+   "Pss": 952586,
+   "Private_Dirty": 856764,
+   "Anonymous": 853016
+  },
+  {
+   "t": 186.5,
+   "Rss": 2089660,
+   "Pss": 952678,
+   "Private_Dirty": 856856,
+   "Anonymous": 853108
+  },
+  {
+   "t": 191.6,
+   "Rss": 2105548,
+   "Pss": 953382,
+   "Private_Dirty": 857544,
+   "Anonymous": 853816
+  },
+  {
+   "t": 196.6,
+   "Rss": 2121604,
+   "Pss": 953675,
+   "Private_Dirty": 858284,
+   "Anonymous": 854556
+  },
+  {
+   "t": 201.7,
+   "Rss": 2137648,
+   "Pss": 954758,
+   "Private_Dirty": 858920,
+   "Anonymous": 855192
+  },
+  {
+   "t": 206.7,
+   "Rss": 2153836,
+   "Pss": 955506,
+   "Private_Dirty": 859676,
+   "Anonymous": 855944
+  },
+  {
+   "t": 211.8,
+   "Rss": 2169732,
+   "Pss": 956098,
+   "Private_Dirty": 860272,
+   "Anonymous": 856536
+  },
+  {
+   "t": 216.8,
+   "Rss": 2169960,
+   "Pss": 956218,
+   "Private_Dirty": 860408,
+   "Anonymous": 856660
+  },
+  {
+   "t": 221.9,
+   "Rss": 2201636,
+   "Pss": 957374,
+   "Private_Dirty": 861564,
+   "Anonymous": 857820
+  },
+  {
+   "t": 226.9,
+   "Rss": 2201640,
+   "Pss": 957378,
+   "Private_Dirty": 861568,
+   "Anonymous": 857824
+  },
+  {
+   "t": 232.0,
+   "Rss": 2217588,
+   "Pss": 958030,
+   "Private_Dirty": 862228,
+   "Anonymous": 858488
+  },
+  {
+   "t": 237.0,
+   "Rss": 2233496,
+   "Pss": 958606,
+   "Private_Dirty": 862824,
+   "Anonymous": 859076
+  },
+  {
+   "t": 242.1,
+   "Rss": 2249432,
+   "Pss": 959238,
+   "Private_Dirty": 863672,
+   "Anonymous": 859724
+  },
+  {
+   "t": 247.1,
+   "Rss": 2249556,
+   "Pss": 959338,
+   "Private_Dirty": 863772,
+   "Anonymous": 859836
+  },
+  {
+   "t": 252.2,
+   "Rss": 2249580,
+   "Pss": 959390,
+   "Private_Dirty": 863824,
+   "Anonymous": 859888
+  },
+  {
+   "t": 257.2,
+   "Rss": 2249580,
+   "Pss": 959390,
+   "Private_Dirty": 863824,
+   "Anonymous": 859888
+  },
+  {
+   "t": 262.3,
+   "Rss": 2249676,
+   "Pss": 959558,
+   "Private_Dirty": 864012,
+   "Anonymous": 860016
+  },
+  {
+   "t": 267.3,
+   "Rss": 2265588,
+   "Pss": 959950,
+   "Private_Dirty": 864412,
+   "Anonymous": 860628
+  },
+  {
+   "t": 272.4,
+   "Rss": 2265596,
+   "Pss": 959962,
+   "Private_Dirty": 864424,
+   "Anonymous": 860640
+  },
+  {
+   "t": 277.4,
+   "Rss": 2265736,
+   "Pss": 960042,
+   "Private_Dirty": 864448,
+   "Anonymous": 860732
+  },
+  {
+   "t": 282.5,
+   "Rss": 2265736,
+   "Pss": 960044,
+   "Private_Dirty": 864452,
+   "Anonymous": 860736
+  },
+  {
+   "t": 287.5,
+   "Rss": 2265740,
+   "Pss": 960060,
+   "Private_Dirty": 864472,
+   "Anonymous": 860752
+  },
+  {
+   "t": 292.6,
+   "Rss": 2265760,
+   "Pss": 960094,
+   "Private_Dirty": 864504,
+   "Anonymous": 860784
+  },
+  {
+   "t": 297.6,
+   "Rss": 2265764,
+   "Pss": 960106,
+   "Private_Dirty": 864516,
+   "Anonymous": 860796
+  },
+  {
+   "t": 302.7,
+   "Rss": 2265780,
+   "Pss": 960158,
+   "Private_Dirty": 864568,
+   "Anonymous": 860852
+  },
+  {
+   "t": 307.7,
+   "Rss": 2266240,
+   "Pss": 960710,
+   "Private_Dirty": 865004,
+   "Anonymous": 861292
+  },
+  {
+   "t": 312.7,
+   "Rss": 2266896,
+   "Pss": 961358,
+   "Private_Dirty": 865652,
+   "Anonymous": 861940
+  },
+  {
+   "t": 317.8,
+   "Rss": 2267024,
+   "Pss": 961478,
+   "Private_Dirty": 865772,
+   "Anonymous": 862060
+  },
+  {
+   "t": 322.8,
+   "Rss": 2267156,
+   "Pss": 961654,
+   "Private_Dirty": 865952,
+   "Anonymous": 862236
+  },
+  {
+   "t": 327.9,
+   "Rss": 2267548,
+   "Pss": 962118,
+   "Private_Dirty": 866420,
+   "Anonymous": 862700
+  },
+  {
+   "t": 332.9,
+   "Rss": 2267616,
+   "Pss": 962166,
+   "Private_Dirty": 866468,
+   "Anonymous": 862748
+  },
+  {
+   "t": 338.0,
+   "Rss": 2268088,
+   "Pss": 962646,
+   "Private_Dirty": 867044,
+   "Anonymous": 863324
+  },
+  {
+   "t": 343.0,
+   "Rss": 2268224,
+   "Pss": 962698,
+   "Private_Dirty": 867096,
+   "Anonymous": 863376
+  },
+  {
+   "t": 348.1,
+   "Rss": 2268228,
+   "Pss": 962778,
+   "Private_Dirty": 867176,
+   "Anonymous": 863460
+  },
+  {
+   "t": 353.1,
+   "Rss": 2268296,
+   "Pss": 962802,
+   "Private_Dirty": 867200,
+   "Anonymous": 863484
+  },
+  {
+   "t": 358.2,
+   "Rss": 2268296,
+   "Pss": 962882,
+   "Private_Dirty": 867304,
+   "Anonymous": 863568
+  },
+  {
+   "t": 363.2,
+   "Rss": 2268376,
+   "Pss": 962918,
+   "Private_Dirty": 867344,
+   "Anonymous": 863608
+  },
+  {
+   "t": 368.3,
+   "Rss": 2268520,
+   "Pss": 962987,
+   "Private_Dirty": 867412,
+   "Anonymous": 863700
+  },
+  {
+   "t": 373.3,
+   "Rss": 2268532,
+   "Pss": 963038,
+   "Private_Dirty": 867480,
+   "Anonymous": 863752
+  },
+  {
+   "t": 378.4,
+   "Rss": 2268672,
+   "Pss": 963086,
+   "Private_Dirty": 867528,
+   "Anonymous": 863800
+  },
+  {
+   "t": 383.4,
+   "Rss": 2268680,
+   "Pss": 963098,
+   "Private_Dirty": 867540,
+   "Anonymous": 863812
+  },
+  {
+   "t": 388.5,
+   "Rss": 2268760,
+   "Pss": 963142,
+   "Private_Dirty": 867584,
+   "Anonymous": 863856
+  },
+  {
+   "t": 393.5,
+   "Rss": 2268776,
+   "Pss": 963194,
+   "Private_Dirty": 867636,
+   "Anonymous": 863908
+  },
+  {
+   "t": 398.6,
+   "Rss": 2268796,
+   "Pss": 963238,
+   "Private_Dirty": 867680,
+   "Anonymous": 863968
+  },
+  {
+   "t": 403.6,
+   "Rss": 2268868,
+   "Pss": 963258,
+   "Private_Dirty": 867704,
+   "Anonymous": 863988
+  },
+  {
+   "t": 408.7,
+   "Rss": 2268880,
+   "Pss": 963294,
+   "Private_Dirty": 867740,
+   "Anonymous": 864024
+  },
+  {
+   "t": 413.7,
+   "Rss": 2268884,
+   "Pss": 963318,
+   "Private_Dirty": 867764,
+   "Anonymous": 864052
+  },
+  {
+   "t": 418.8,
+   "Rss": 2268896,
+   "Pss": 963358,
+   "Private_Dirty": 867808,
+   "Anonymous": 864092
+  },
+  {
+   "t": 423.8,
+   "Rss": 2269044,
+   "Pss": 963430,
+   "Private_Dirty": 867828,
+   "Anonymous": 864164
+  },
+  {
+   "t": 428.9,
+   "Rss": 2269084,
+   "Pss": 963510,
+   "Private_Dirty": 867908,
+   "Anonymous": 864248
+  },
+  {
+   "t": 433.9,
+   "Rss": 2269100,
+   "Pss": 963542,
+   "Private_Dirty": 867940,
+   "Anonymous": 864280
+  },
+  {
+   "t": 439.0,
+   "Rss": 2269104,
+   "Pss": 963586,
+   "Private_Dirty": 867992,
+   "Anonymous": 864324
+  },
+  {
+   "t": 444.0,
+   "Rss": 2269192,
+   "Pss": 963634,
+   "Private_Dirty": 868040,
+   "Anonymous": 864376
+  },
+  {
+   "t": 449.1,
+   "Rss": 2269192,
+   "Pss": 963642,
+   "Private_Dirty": 868048,
+   "Anonymous": 864388
+  },
+  {
+   "t": 454.1,
+   "Rss": 2269228,
+   "Pss": 963738,
+   "Private_Dirty": 868148,
+   "Anonymous": 864484
+  },
+  {
+   "t": 459.2,
+   "Rss": 2269240,
+   "Pss": 963766,
+   "Private_Dirty": 868184,
+   "Anonymous": 864512
+  },
+  {
+   "t": 464.2,
+   "Rss": 2269264,
+   "Pss": 963802,
+   "Private_Dirty": 868220,
+   "Anonymous": 864552
+  },
+  {
+   "t": 469.3,
+   "Rss": 2269272,
+   "Pss": 963830,
+   "Private_Dirty": 868248,
+   "Anonymous": 864580
+  },
+  {
+   "t": 474.3,
+   "Rss": 2269292,
+   "Pss": 963862,
+   "Private_Dirty": 868280,
+   "Anonymous": 864612
+  },
+  {
+   "t": 479.4,
+   "Rss": 2269292,
+   "Pss": 963870,
+   "Private_Dirty": 868288,
+   "Anonymous": 864620
+  },
+  {
+   "t": 484.4,
+   "Rss": 2269308,
+   "Pss": 963905,
+   "Private_Dirty": 868324,
+   "Anonymous": 864656
+  },
+  {
+   "t": 489.5,
+   "Rss": 2269328,
+   "Pss": 963941,
+   "Private_Dirty": 868360,
+   "Anonymous": 864692
+  },
+  {
+   "t": 494.5,
+   "Rss": 2269356,
+   "Pss": 963981,
+   "Private_Dirty": 868400,
+   "Anonymous": 864732
+  },
+  {
+   "t": 499.6,
+   "Rss": 2269356,
+   "Pss": 963981,
+   "Private_Dirty": 868400,
+   "Anonymous": 864732
+  },
+  {
+   "t": 504.6,
+   "Rss": 2269368,
+   "Pss": 964005,
+   "Private_Dirty": 868424,
+   "Anonymous": 864756
+  },
+  {
+   "t": 509.7,
+   "Rss": 2269396,
+   "Pss": 964053,
+   "Private_Dirty": 868472,
+   "Anonymous": 864804
+  },
+  {
+   "t": 514.7,
+   "Rss": 2269412,
+   "Pss": 964089,
+   "Private_Dirty": 868512,
+   "Anonymous": 864844
+  },
+  {
+   "t": 519.8,
+   "Rss": 2269416,
+   "Pss": 964101,
+   "Private_Dirty": 868524,
+   "Anonymous": 864856
+  },
+  {
+   "t": 524.8,
+   "Rss": 2269436,
+   "Pss": 964149,
+   "Private_Dirty": 868572,
+   "Anonymous": 864912
+  },
+  {
+   "t": 529.9,
+   "Rss": 2269456,
+   "Pss": 964202,
+   "Private_Dirty": 868624,
+   "Anonymous": 864964
+  },
+  {
+   "t": 534.9,
+   "Rss": 2269472,
+   "Pss": 964230,
+   "Private_Dirty": 868656,
+   "Anonymous": 864992
+  },
+  {
+   "t": 540.0,
+   "Rss": 2269472,
+   "Pss": 964234,
+   "Private_Dirty": 868660,
+   "Anonymous": 864996
+  },
+  {
+   "t": 545.0,
+   "Rss": 2269504,
+   "Pss": 964286,
+   "Private_Dirty": 868716,
+   "Anonymous": 865048
+  },
+  {
+   "t": 550.0,
+   "Rss": 2269516,
+   "Pss": 964330,
+   "Private_Dirty": 868760,
+   "Anonymous": 865096
+  },
+  {
+   "t": 555.1,
+   "Rss": 2269540,
+   "Pss": 964382,
+   "Private_Dirty": 868812,
+   "Anonymous": 865148
+  },
+  {
+   "t": 560.1,
+   "Rss": 2269548,
+   "Pss": 964402,
+   "Private_Dirty": 868832,
+   "Anonymous": 865168
+  },
+  {
+   "t": 565.2,
+   "Rss": 2269552,
+   "Pss": 964414,
+   "Private_Dirty": 868844,
+   "Anonymous": 865184
+  },
+  {
+   "t": 570.2,
+   "Rss": 2269580,
+   "Pss": 964458,
+   "Private_Dirty": 868892,
+   "Anonymous": 865228
+  },
+  {
+   "t": 575.3,
+   "Rss": 2269588,
+   "Pss": 964490,
+   "Private_Dirty": 868932,
+   "Anonymous": 865264
+  },
+  {
+   "t": 580.3,
+   "Rss": 2269604,
+   "Pss": 964506,
+   "Private_Dirty": 868948,
+   "Anonymous": 865280
+  },
+  {
+   "t": 585.4,
+   "Rss": 2269616,
+   "Pss": 964534,
+   "Private_Dirty": 868976,
+   "Anonymous": 865308
+  },
+  {
+   "t": 590.4,
+   "Rss": 2269636,
+   "Pss": 964570,
+   "Private_Dirty": 869012,
+   "Anonymous": 865348
+  },
+  {
+   "t": 595.5,
+   "Rss": 2269660,
+   "Pss": 964614,
+   "Private_Dirty": 869056,
+   "Anonymous": 865392
+  },
+  {
+   "t": 600.5,
+   "Rss": 2269768,
+   "Pss": 964682,
+   "Private_Dirty": 869116,
+   "Anonymous": 865460
+  },
+  {
+   "t": 605.6,
+   "Rss": 2269784,
+   "Pss": 964759,
+   "Private_Dirty": 869200,
+   "Anonymous": 865548
+  },
+  {
+   "t": 610.6,
+   "Rss": 2269784,
+   "Pss": 964761,
+   "Private_Dirty": 869200,
+   "Anonymous": 865548
+  },
+  {
+   "t": 615.7,
+   "Rss": 2128104,
+   "Pss": 910752,
+   "Private_Dirty": 815516,
+   "Anonymous": 811764
+  },
+  {
+   "t": 620.7,
+   "Rss": 1986612,
+   "Pss": 856492,
+   "Private_Dirty": 761544,
+   "Anonymous": 757832
+  },
+  {
+   "t": 625.8,
+   "Rss": 1986616,
+   "Pss": 856501,
+   "Private_Dirty": 761552,
+   "Anonymous": 757840
+  },
+  {
+   "t": 630.8,
+   "Rss": 1986640,
+   "Pss": 856537,
+   "Private_Dirty": 761588,
+   "Anonymous": 757884
+  },
+  {
+   "t": 635.8,
+   "Rss": 1986656,
+   "Pss": 856555,
+   "Private_Dirty": 761612,
+   "Anonymous": 757908
+  },
+  {
+   "t": 640.9,
+   "Rss": 1986656,
+   "Pss": 856586,
+   "Private_Dirty": 761644,
+   "Anonymous": 757936
+  },
+  {
+   "t": 645.9,
+   "Rss": 1845240,
+   "Pss": 802382,
+   "Private_Dirty": 707764,
+   "Anonymous": 704124
+  },
+  {
+   "t": 651.0,
+   "Rss": 1845252,
+   "Pss": 802398,
+   "Private_Dirty": 707780,
+   "Anonymous": 704140
+  },
+  {
+   "t": 656.0,
+   "Rss": 1561960,
+   "Pss": 693526,
+   "Private_Dirty": 600164,
+   "Anonymous": 596260
+  },
+  {
+   "t": 661.1,
+   "Rss": 1561976,
+   "Pss": 693542,
+   "Private_Dirty": 600180,
+   "Anonymous": 596276
+  },
+  {
+   "t": 666.1,
+   "Rss": 1561980,
+   "Pss": 693550,
+   "Private_Dirty": 600188,
+   "Anonymous": 596284
+  },
+  {
+   "t": 671.1,
+   "Rss": 1561988,
+   "Pss": 693578,
+   "Private_Dirty": 600220,
+   "Anonymous": 596312
+  },
+  {
+   "t": 676.2,
+   "Rss": 1420852,
+   "Pss": 639290,
+   "Private_Dirty": 546196,
+   "Anonymous": 542420
+  },
+  {
+   "t": 681.2,
+   "Rss": 1420868,
+   "Pss": 639306,
+   "Private_Dirty": 546212,
+   "Anonymous": 542436
+  },
+  {
+   "t": 686.3,
+   "Rss": 1420868,
+   "Pss": 639306,
+   "Private_Dirty": 546212,
+   "Anonymous": 542436
+  },
+  {
+   "t": 691.3,
+   "Rss": 1420868,
+   "Pss": 639306,
+   "Private_Dirty": 546212,
+   "Anonymous": 542436
+  },
+  {
+   "t": 696.3,
+   "Rss": 1279828,
+   "Pss": 585146,
+   "Private_Dirty": 492432,
+   "Anonymous": 488604
+  },
+  {
+   "t": 701.4,
+   "Rss": 1279832,
+   "Pss": 585158,
+   "Private_Dirty": 492444,
+   "Anonymous": 488616
+  },
+  {
+   "t": 706.4,
+   "Rss": 1279840,
+   "Pss": 585178,
+   "Private_Dirty": 492468,
+   "Anonymous": 488636
+  },
+  {
+   "t": 711.4,
+   "Rss": 1279860,
+   "Pss": 585202,
+   "Private_Dirty": 492492,
+   "Anonymous": 488664
+  },
+  {
+   "t": 716.5,
+   "Rss": 1279860,
+   "Pss": 585214,
+   "Private_Dirty": 492504,
+   "Anonymous": 488676
+  },
+  {
+   "t": 721.5,
+   "Rss": 1279860,
+   "Pss": 585214,
+   "Private_Dirty": 492504,
+   "Anonymous": 488676
+  },
+  {
+   "t": 726.6,
+   "Rss": 1138608,
+   "Pss": 530734,
+   "Private_Dirty": 438372,
+   "Anonymous": 434836
+  },
+  {
+   "t": 731.6,
+   "Rss": 1138616,
+   "Pss": 530754,
+   "Private_Dirty": 438392,
+   "Anonymous": 434856
+  },
+  {
+   "t": 736.6,
+   "Rss": 1138624,
+   "Pss": 530766,
+   "Private_Dirty": 438404,
+   "Anonymous": 434868
+  },
+  {
+   "t": 741.7,
+   "Rss": 997244,
+   "Pss": 476494,
+   "Private_Dirty": 384596,
+   "Anonymous": 380964
+  },
+  {
+   "t": 746.7,
+   "Rss": 714328,
+   "Pss": 367390,
+   "Private_Dirty": 277068,
+   "Anonymous": 273116
+  },
+  {
+   "t": 751.7,
+   "Rss": 714328,
+   "Pss": 367390,
+   "Private_Dirty": 277068,
+   "Anonymous": 273116
+  },
+  {
+   "t": 756.8,
+   "Rss": 714320,
+   "Pss": 367382,
+   "Private_Dirty": 277060,
+   "Anonymous": 273108
+  },
+  {
+   "t": 761.8,
+   "Rss": 431212,
+   "Pss": 257262,
+   "Private_Dirty": 168740,
+   "Anonymous": 165216
+  },
+  {
+   "t": 766.8,
+   "Rss": 431224,
+   "Pss": 257286,
+   "Private_Dirty": 168772,
+   "Anonymous": 165244
+  },
+  {
+   "t": 771.8,
+   "Rss": 431240,
+   "Pss": 257313,
+   "Private_Dirty": 168808,
+   "Anonymous": 165276
+  },
+  {
+   "t": 776.8,
+   "Rss": 289844,
+   "Pss": 202292,
+   "Private_Dirty": 115492,
+   "Anonymous": 111328
+  },
+  {
+   "t": 781.8,
+   "Rss": 148756,
+   "Pss": 146457,
+   "Private_Dirty": 144912,
+   "Anonymous": 57392
+  },
+  {
+   "t": 786.8,
+   "Rss": 148756,
+   "Pss": 146457,
+   "Private_Dirty": 144912,
+   "Anonymous": 57392
+  },
+  {
+   "t": 791.8,
+   "Rss": 148748,
+   "Pss": 146449,
+   "Private_Dirty": 144904,
+   "Anonymous": 57384
+  },
+  {
+   "t": 796.9,
+   "Rss": 148748,
+   "Pss": 146449,
+   "Private_Dirty": 144904,
+   "Anonymous": 57384
+  },
+  {
+   "t": 801.9,
+   "Rss": 148748,
+   "Pss": 146449,
+   "Private_Dirty": 144904,
+   "Anonymous": 57384
+  },
+  {
+   "t": 806.9,
+   "Rss": 148748,
+   "Pss": 146449,
+   "Private_Dirty": 144904,
+   "Anonymous": 57384
+  }
+ ]
+}

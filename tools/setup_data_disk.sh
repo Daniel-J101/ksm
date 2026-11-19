@@ -39,7 +39,7 @@ uuid="$(blkid -s UUID -o value "$DEV")"
 grep -q "$uuid" /etc/fstab || echo "UUID=$uuid $MNT ext4 noatime,nofail 0 2" >> /etc/fstab
 
 grp="$(id -gn "$REAL_USER")"
-for d in docker templates traces work; do mkdir -p "$MNT/$d"; done
-chown "$REAL_USER:$grp" "$MNT/templates" "$MNT/traces" "$MNT/work"
+for d in docker templates traces work hf; do mkdir -p "$MNT/$d"; done
+chown "$REAL_USER:$grp" "$MNT/templates" "$MNT/traces" "$MNT/work" "$MNT/hf"   # hf = HuggingFace cache
 df -h "$MNT" | tail -1
 echo "VERIFY: $DEV mounted at $MNT (fstab: UUID=$uuid, nofail)"

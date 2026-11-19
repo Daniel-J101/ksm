@@ -1,0 +1,871 @@
+{
+ "when_utc": "20261119-144711",
+ "template": "/mnt/data/templates/aiohttp/f0d74880deec",
+ "task": {
+  "repo": "aiohttp",
+  "repo_index": 0,
+  "dataset": "R2E-Gym/R2E-Gym-Lite",
+  "split": "train",
+  "dataset_row": 0,
+  "commit": "f0d74880deec8fcd982bce639c93c5e130d41198",
+  "docker_image": "namanjain12/aiohttp_final:f0d74880deec8fcd982bce639c93c5e130d41198"
+ },
+ "mem_mib": 3072,
+ "n": 2,
+ "hold_min": 1.0,
+ "gap_s": [
+  1.0,
+  3.0
+ ],
+ "serve_load_s": 5.6,
+ "pass": false,
+ "checks": [
+  {
+   "name": "docker reference: tests fail before fix, pass after",
+   "pass": true,
+   "detail": "0.0 -> 1.0"
+  },
+  {
+   "name": "single sandbox == docker on every step",
+   "pass": false,
+   "detail": "1 diffs"
+  },
+  {
+   "name": "2 concurrent sandboxes == docker on every step of every round",
+   "pass": false,
+   "detail": "44 diffs; rounds/sandbox [4, 4]"
+  },
+  {
+   "name": "each sandbox held >= 1.0 min",
+   "pass": true,
+   "detail": "1.2 min"
+  }
+ ],
+ "reference": [
+  {
+   "code": "Error: Exit code 1",
+   "tests": {
+    "TestUrlDispatcher.test_add_invalid_path": "PASSED",
+    "TestUrlDispatcher.test_add_route_invalid_method": "PASSED",
+    "TestUrlDispatcher.test_add_route_not_started_with_slash": "PASSED",
+    "TestUrlDispatcher.test_add_route_root": "PASSED",
+    "TestUrlDispatcher.test_add_route_simple": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_invalid_re": "FAILED",
+    "TestUrlDispatcher.test_add_route_with_re": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_and_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_including_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_not_match": "PASSED",
+    "TestUrlDispatcher.test_add_static": "PASSED",
+    "TestUrlDispatcher.test_add_url_escaping": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid1": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid2": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid3": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid4": "PASSED",
+    "TestUrlDispatcher.test_add_with_matchdict": "PASSED",
+    "TestUrlDispatcher.test_add_with_name": "PASSED",
+    "TestUrlDispatcher.test_add_with_tailing_slash": "PASSED",
+    "TestUrlDispatcher.test_any_method": "PASSED",
+    "TestUrlDispatcher.test_contains": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_dynamic": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_plain": "PASSED",
+    "TestUrlDispatcher.test_default_expect_handler": "PASSED",
+    "TestUrlDispatcher.test_double_add_url_with_the_same_name": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_non_ascii": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_two_part2": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_unquoted_path": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_with_static_part": "PASSED",
+    "TestUrlDispatcher.test_dynamic_not_match": "PASSED",
+    "TestUrlDispatcher.test_dynamic_repr": "PASSED",
+    "TestUrlDispatcher.test_dynamic_with_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_expect_handler_non_coroutine": "PASSED",
+    "TestUrlDispatcher.test_iter": "PASSED",
+    "TestUrlDispatcher.test_len": "PASSED",
+    "TestUrlDispatcher.test_match_second_result_in_table": "PASSED",
+    "TestUrlDispatcher.test_not_allowed_repr": "PASSED",
+    "TestUrlDispatcher.test_not_found_repr": "PASSED",
+    "TestUrlDispatcher.test_plain_not_match": "PASSED",
+    "TestUrlDispatcher.test_plain_repr": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_allowed": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_found": "PASSED",
+    "TestUrlDispatcher.test_register_route": "PASSED",
+    "TestUrlDispatcher.test_register_route_checks": "FAILED",
+    "TestUrlDispatcher.test_regular_match_info": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec_and_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_route_plain": "PASSED",
+    "TestUrlDispatcher.test_route_unknown_route_name": "PASSED",
+    "TestUrlDispatcher.test_route_with_qs": "PASSED",
+    "TestUrlDispatcher.test_routes_abc": "PASSED",
+    "TestUrlDispatcher.test_routes_view_contains": "PASSED",
+    "TestUrlDispatcher.test_routes_view_iter": "PASSED",
+    "TestUrlDispatcher.test_routes_view_len": "PASSED",
+    "TestUrlDispatcher.test_static_adds_slash": "PASSED",
+    "TestUrlDispatcher.test_static_dont_add_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_static_handle_again": "PASSED",
+    "TestUrlDispatcher.test_static_handle_eof": "PASSED",
+    "TestUrlDispatcher.test_static_handle_exception": "PASSED",
+    "TestUrlDispatcher.test_static_not_match": "PASSED",
+    "TestUrlDispatcher.test_static_repr": "PASSED",
+    "TestUrlDispatcher.test_system_route": "PASSED"
+   },
+   "reward": 0.0,
+   "step": "tests_before",
+   "secs": 2.627,
+   "out_len": 8492
+  },
+  {
+   "code": "Error: Exit code 2",
+   "text": "usage: file_editor [-h] [--path PATH] [--file_text FILE_TEXT]\n                   [--view_range VIEW_RANGE] [--old_str OLD_STR]\n                   [--new_str NEW_STR] [--insert_line INSERT_LINE]\n                   [--enable_linting ENABLE_LINTING] [--concise CONCISE]\n                   [--python_only PYTHON_ONLY]\n                   command\nfile_editor: error: argument --concise: expected one argument\n",
+   "step": "view",
+   "secs": 0.161,
+   "out_len": 403
+  },
+  {
+   "code": "0",
+   "text": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/web.py (26 matches)\n./aiohttp/multipart.py (68 matches)\n./aiohttp/connector.py (40 matches)\n./aiohttp/web_exceptions.py (3 matches)\n./aiohttp/web_ws.py (23 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/web_reqrep.py (74 matches)\n./aiohttp/parsers.py (34 matches)\n./aiohttp/multidict.py (52 matches)\n./aiohttp/signals.py (8 matches)\n./aiohttp/websocket.py (11 matches)\n./aiohttp/errors.py (9 matches)\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/protocol.py (37 matches)\nEnd of matches for \"def \" in /testbed/aiohttp\n",
+   "step": "search",
+   "secs": 0.122,
+   "out_len": 903
+  },
+  {
+   "code": "0",
+   "step": "put_patch",
+   "secs": 0.006,
+   "out_len": 0
+  },
+  {
+   "code": "0",
+   "text": "",
+   "step": "apply",
+   "secs": 0.071,
+   "out_len": 0
+  },
+  {
+   "code": "0",
+   "text": "File created at /testbed/zb_probe.py. Here's the result of running `cat -n` on /testbed/zb_probe.py:\n     1\tprint(6*7)\nReview the file and make sure that it is as expected. Edit the file if necessary.\n",
+   "step": "create",
+   "secs": 0.228,
+   "out_len": 201
+  },
+  {
+   "code": "0",
+   "text": "42\n",
+   "step": "run_probe",
+   "secs": 0.082,
+   "out_len": 3
+  },
+  {
+   "code": "Error: Exit code 1",
+   "tests": {
+    "TestUrlDispatcher.test_add_invalid_path": "PASSED",
+    "TestUrlDispatcher.test_add_route_invalid_method": "PASSED",
+    "TestUrlDispatcher.test_add_route_not_started_with_slash": "PASSED",
+    "TestUrlDispatcher.test_add_route_root": "PASSED",
+    "TestUrlDispatcher.test_add_route_simple": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_invalid_re": "FAILED",
+    "TestUrlDispatcher.test_add_route_with_re": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_and_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_including_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_not_match": "PASSED",
+    "TestUrlDispatcher.test_add_static": "PASSED",
+    "TestUrlDispatcher.test_add_url_escaping": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid1": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid2": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid3": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid4": "PASSED",
+    "TestUrlDispatcher.test_add_with_matchdict": "PASSED",
+    "TestUrlDispatcher.test_add_with_name": "PASSED",
+    "TestUrlDispatcher.test_add_with_tailing_slash": "PASSED",
+    "TestUrlDispatcher.test_any_method": "PASSED",
+    "TestUrlDispatcher.test_contains": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_dynamic": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_plain": "PASSED",
+    "TestUrlDispatcher.test_default_expect_handler": "PASSED",
+    "TestUrlDispatcher.test_double_add_url_with_the_same_name": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_non_ascii": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_two_part2": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_unquoted_path": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_with_static_part": "PASSED",
+    "TestUrlDispatcher.test_dynamic_not_match": "PASSED",
+    "TestUrlDispatcher.test_dynamic_repr": "PASSED",
+    "TestUrlDispatcher.test_dynamic_with_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_expect_handler_non_coroutine": "PASSED",
+    "TestUrlDispatcher.test_iter": "PASSED",
+    "TestUrlDispatcher.test_len": "PASSED",
+    "TestUrlDispatcher.test_match_second_result_in_table": "PASSED",
+    "TestUrlDispatcher.test_not_allowed_repr": "PASSED",
+    "TestUrlDispatcher.test_not_found_repr": "PASSED",
+    "TestUrlDispatcher.test_plain_not_match": "PASSED",
+    "TestUrlDispatcher.test_plain_repr": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_allowed": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_found": "PASSED",
+    "TestUrlDispatcher.test_register_route": "PASSED",
+    "TestUrlDispatcher.test_register_route_checks": "PASSED",
+    "TestUrlDispatcher.test_regular_match_info": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec_and_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_route_plain": "PASSED",
+    "TestUrlDispatcher.test_route_unknown_route_name": "PASSED",
+    "TestUrlDispatcher.test_route_with_qs": "PASSED",
+    "TestUrlDispatcher.test_routes_abc": "PASSED",
+    "TestUrlDispatcher.test_routes_view_contains": "PASSED",
+    "TestUrlDispatcher.test_routes_view_iter": "PASSED",
+    "TestUrlDispatcher.test_routes_view_len": "PASSED",
+    "TestUrlDispatcher.test_static_adds_slash": "PASSED",
+    "TestUrlDispatcher.test_static_dont_add_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_static_handle_again": "PASSED",
+    "TestUrlDispatcher.test_static_handle_eof": "PASSED",
+    "TestUrlDispatcher.test_static_handle_exception": "PASSED",
+    "TestUrlDispatcher.test_static_not_match": "PASSED",
+    "TestUrlDispatcher.test_static_repr": "PASSED",
+    "TestUrlDispatcher.test_system_route": "PASSED"
+   },
+   "reward": 1.0,
+   "step": "tests_after",
+   "secs": 0.674,
+   "out_len": 6719
+  },
+  {
+   "code": "0",
+   "text": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+   "step": "diffstat",
+   "secs": 0.189,
+   "out_len": 262
+  }
+ ],
+ "single": [
+  {
+   "code": "Error: Exit code 1",
+   "tests": {
+    "TestUrlDispatcher.test_add_invalid_path": "PASSED",
+    "TestUrlDispatcher.test_add_route_invalid_method": "PASSED",
+    "TestUrlDispatcher.test_add_route_not_started_with_slash": "PASSED",
+    "TestUrlDispatcher.test_add_route_root": "PASSED",
+    "TestUrlDispatcher.test_add_route_simple": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_invalid_re": "FAILED",
+    "TestUrlDispatcher.test_add_route_with_re": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_and_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_including_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_not_match": "PASSED",
+    "TestUrlDispatcher.test_add_static": "PASSED",
+    "TestUrlDispatcher.test_add_url_escaping": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid1": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid2": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid3": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid4": "PASSED",
+    "TestUrlDispatcher.test_add_with_matchdict": "PASSED",
+    "TestUrlDispatcher.test_add_with_name": "PASSED",
+    "TestUrlDispatcher.test_add_with_tailing_slash": "PASSED",
+    "TestUrlDispatcher.test_any_method": "PASSED",
+    "TestUrlDispatcher.test_contains": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_dynamic": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_plain": "PASSED",
+    "TestUrlDispatcher.test_default_expect_handler": "PASSED",
+    "TestUrlDispatcher.test_double_add_url_with_the_same_name": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_non_ascii": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_two_part2": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_unquoted_path": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_with_static_part": "PASSED",
+    "TestUrlDispatcher.test_dynamic_not_match": "PASSED",
+    "TestUrlDispatcher.test_dynamic_repr": "PASSED",
+    "TestUrlDispatcher.test_dynamic_with_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_expect_handler_non_coroutine": "PASSED",
+    "TestUrlDispatcher.test_iter": "PASSED",
+    "TestUrlDispatcher.test_len": "PASSED",
+    "TestUrlDispatcher.test_match_second_result_in_table": "PASSED",
+    "TestUrlDispatcher.test_not_allowed_repr": "PASSED",
+    "TestUrlDispatcher.test_not_found_repr": "PASSED",
+    "TestUrlDispatcher.test_plain_not_match": "PASSED",
+    "TestUrlDispatcher.test_plain_repr": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_allowed": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_found": "PASSED",
+    "TestUrlDispatcher.test_register_route": "PASSED",
+    "TestUrlDispatcher.test_register_route_checks": "FAILED",
+    "TestUrlDispatcher.test_regular_match_info": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec_and_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_route_plain": "PASSED",
+    "TestUrlDispatcher.test_route_unknown_route_name": "PASSED",
+    "TestUrlDispatcher.test_route_with_qs": "PASSED",
+    "TestUrlDispatcher.test_routes_abc": "PASSED",
+    "TestUrlDispatcher.test_routes_view_contains": "PASSED",
+    "TestUrlDispatcher.test_routes_view_iter": "PASSED",
+    "TestUrlDispatcher.test_routes_view_len": "PASSED",
+    "TestUrlDispatcher.test_static_adds_slash": "PASSED",
+    "TestUrlDispatcher.test_static_dont_add_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_static_handle_again": "PASSED",
+    "TestUrlDispatcher.test_static_handle_eof": "PASSED",
+    "TestUrlDispatcher.test_static_handle_exception": "PASSED",
+    "TestUrlDispatcher.test_static_not_match": "PASSED",
+    "TestUrlDispatcher.test_static_repr": "PASSED",
+    "TestUrlDispatcher.test_system_route": "PASSED"
+   },
+   "reward": 0.0,
+   "step": "tests_before",
+   "secs": 1.731,
+   "out_len": 8492
+  },
+  {
+   "code": "Error: Exit code 2",
+   "text": "usage: file_editor [-h] [--path PATH] [--file_text FILE_TEXT]\n                   [--view_range VIEW_RANGE] [--old_str OLD_STR]\n                   [--new_str NEW_STR] [--insert_line INSERT_LINE]\n                   [--enable_linting ENABLE_LINTING] [--concise CONCISE]\n                   [--python_only PYTHON_ONLY]\n                   command\nfile_editor: error: argument --concise: expected one argument\n",
+   "step": "view",
+   "secs": 0.095,
+   "out_len": 403
+  },
+  {
+   "code": "0",
+   "text": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 matches)\n./aiohttp/web_ws.py (23 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/web_reqrep.py (74 matches)\n./aiohttp/web_exceptions.py (3 matches)\n./aiohttp/web.py (26 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/signals.py (8 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/protocol.py (37 matches)\n./aiohttp/parsers.py (34 matches)\n./aiohttp/multipart.py (68 matches)\n./aiohttp/multidict.py (52 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/errors.py (9 matches)\n./aiohttp/connector.py (40 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/abc.py (3 matches)\nEnd of matches for \"def \" in /testbed/aiohttp\n",
+   "step": "search",
+   "secs": 0.063,
+   "out_len": 903
+  },
+  {
+   "code": "0",
+   "step": "put_patch",
+   "secs": 0.047,
+   "out_len": 0
+  },
+  {
+   "code": "0",
+   "text": "",
+   "step": "apply",
+   "secs": 0.009,
+   "out_len": 0
+  },
+  {
+   "code": "0",
+   "text": "File created at /testbed/zb_probe.py. Here's the result of running `cat -n` on /testbed/zb_probe.py:\n     1\tprint(6*7)\nReview the file and make sure that it is as expected. Edit the file if necessary.\n",
+   "step": "create",
+   "secs": 0.09,
+   "out_len": 201
+  },
+  {
+   "code": "0",
+   "text": "42\n",
+   "step": "run_probe",
+   "secs": 0.025,
+   "out_len": 3
+  },
+  {
+   "code": "Error: Exit code 1",
+   "tests": {
+    "TestUrlDispatcher.test_add_invalid_path": "PASSED",
+    "TestUrlDispatcher.test_add_route_invalid_method": "PASSED",
+    "TestUrlDispatcher.test_add_route_not_started_with_slash": "PASSED",
+    "TestUrlDispatcher.test_add_route_root": "PASSED",
+    "TestUrlDispatcher.test_add_route_simple": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_invalid_re": "FAILED",
+    "TestUrlDispatcher.test_add_route_with_re": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_and_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_including_slashes": "PASSED",
+    "TestUrlDispatcher.test_add_route_with_re_not_match": "PASSED",
+    "TestUrlDispatcher.test_add_static": "PASSED",
+    "TestUrlDispatcher.test_add_url_escaping": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid1": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid2": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid3": "PASSED",
+    "TestUrlDispatcher.test_add_url_invalid4": "PASSED",
+    "TestUrlDispatcher.test_add_with_matchdict": "PASSED",
+    "TestUrlDispatcher.test_add_with_name": "PASSED",
+    "TestUrlDispatcher.test_add_with_tailing_slash": "PASSED",
+    "TestUrlDispatcher.test_any_method": "PASSED",
+    "TestUrlDispatcher.test_contains": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_dynamic": "PASSED",
+    "TestUrlDispatcher.test_custom_expect_handler_plain": "PASSED",
+    "TestUrlDispatcher.test_default_expect_handler": "PASSED",
+    "TestUrlDispatcher.test_double_add_url_with_the_same_name": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_non_ascii": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_two_part2": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_unquoted_path": "PASSED",
+    "TestUrlDispatcher.test_dynamic_match_with_static_part": "PASSED",
+    "TestUrlDispatcher.test_dynamic_not_match": "PASSED",
+    "TestUrlDispatcher.test_dynamic_repr": "PASSED",
+    "TestUrlDispatcher.test_dynamic_with_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_expect_handler_non_coroutine": "PASSED",
+    "TestUrlDispatcher.test_iter": "PASSED",
+    "TestUrlDispatcher.test_len": "PASSED",
+    "TestUrlDispatcher.test_match_second_result_in_table": "PASSED",
+    "TestUrlDispatcher.test_not_allowed_repr": "PASSED",
+    "TestUrlDispatcher.test_not_found_repr": "PASSED",
+    "TestUrlDispatcher.test_plain_not_match": "PASSED",
+    "TestUrlDispatcher.test_plain_repr": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_allowed": "PASSED",
+    "TestUrlDispatcher.test_raise_method_not_found": "PASSED",
+    "TestUrlDispatcher.test_register_route": "PASSED",
+    "TestUrlDispatcher.test_register_route_checks": "PASSED",
+    "TestUrlDispatcher.test_regular_match_info": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec": "PASSED",
+    "TestUrlDispatcher.test_route_dynamic_with_regex_spec_and_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_route_plain": "PASSED",
+    "TestUrlDispatcher.test_route_unknown_route_name": "PASSED",
+    "TestUrlDispatcher.test_route_with_qs": "PASSED",
+    "TestUrlDispatcher.test_routes_abc": "PASSED",
+    "TestUrlDispatcher.test_routes_view_contains": "PASSED",
+    "TestUrlDispatcher.test_routes_view_iter": "PASSED",
+    "TestUrlDispatcher.test_routes_view_len": "PASSED",
+    "TestUrlDispatcher.test_static_adds_slash": "PASSED",
+    "TestUrlDispatcher.test_static_dont_add_trailing_slash": "PASSED",
+    "TestUrlDispatcher.test_static_handle_again": "PASSED",
+    "TestUrlDispatcher.test_static_handle_eof": "PASSED",
+    "TestUrlDispatcher.test_static_handle_exception": "PASSED",
+    "TestUrlDispatcher.test_static_not_match": "PASSED",
+    "TestUrlDispatcher.test_static_repr": "PASSED",
+    "TestUrlDispatcher.test_system_route": "PASSED"
+   },
+   "reward": 1.0,
+   "step": "tests_after",
+   "secs": 0.701,
+   "out_len": 6719
+  },
+  {
+   "code": "0",
+   "text": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+   "step": "diffstat",
+   "secs": 0.094,
+   "out_len": 262
+  }
+ ],
+ "single_diffs": [
+  {
+   "step": "search",
+   "field": "text",
+   "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+   "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 matches)\n./aiohttp/web_ws.py (23 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/web_reqrep.py (74 matc"
+  }
+ ],
+ "concurrent": {
+  "1": {
+   "rounds": 4,
+   "diffs": [
+    {
+     "step": "search",
+     "field": "text",
+     "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+     "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 matches)\n./aiohttp/web_ws.py (23 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/web_reqrep.py (74 matc",
+     "round": 0
+    },
+    {
+     "step": "tests_before",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 1
+    },
+    {
+     "step": "tests_before",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 1
+    },
+    {
+     "step": "search",
+     "field": "text",
+     "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+     "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/worker.py (9 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 m",
+     "round": 1
+    },
+    {
+     "step": "tests_after",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 1
+    },
+    {
+     "step": "tests_after",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 1
+    },
+    {
+     "step": "tests_after",
+     "field": "reward",
+     "docker": "1.0",
+     "sandbox": "0.0",
+     "round": 1
+    },
+    {
+     "step": "diffstat",
+     "field": "text",
+     "docker": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+     "sandbox": " aiohttp/web_urldispatcher.py | 16 ++++++++++------\n 1 file changed, 10 insertions(+), 6 deletions(-)\n",
+     "round": 1
+    },
+    {
+     "step": "tests_before",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 2
+    },
+    {
+     "step": "tests_before",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 2
+    },
+    {
+     "step": "search",
+     "field": "text",
+     "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+     "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 m",
+     "round": 2
+    },
+    {
+     "step": "tests_after",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 2
+    },
+    {
+     "step": "tests_after",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 2
+    },
+    {
+     "step": "tests_after",
+     "field": "reward",
+     "docker": "1.0",
+     "sandbox": "0.0",
+     "round": 2
+    },
+    {
+     "step": "diffstat",
+     "field": "text",
+     "docker": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+     "sandbox": " aiohttp/web_urldispatcher.py | 16 ++++++++++------\n 1 file changed, 10 insertions(+), 6 deletions(-)\n",
+     "round": 2
+    },
+    {
+     "step": "tests_before",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 3
+    },
+    {
+     "step": "tests_before",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 3
+    },
+    {
+     "step": "search",
+     "field": "text",
+     "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+     "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 m",
+     "round": 3
+    },
+    {
+     "step": "tests_after",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 3
+    },
+    {
+     "step": "tests_after",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 3
+    },
+    {
+     "step": "tests_after",
+     "field": "reward",
+     "docker": "1.0",
+     "sandbox": "0.0",
+     "round": 3
+    },
+    {
+     "step": "diffstat",
+     "field": "text",
+     "docker": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+     "sandbox": " aiohttp/web_urldispatcher.py | 16 ++++++++++------\n 1 file changed, 10 insertions(+), 6 deletions(-)\n",
+     "round": 3
+    }
+   ]
+  },
+  "0": {
+   "rounds": 4,
+   "diffs": [
+    {
+     "step": "search",
+     "field": "text",
+     "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+     "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 matches)\n./aiohttp/web_ws.py (23 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/web_reqrep.py (74 matc",
+     "round": 0
+    },
+    {
+     "step": "tests_before",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 1
+    },
+    {
+     "step": "tests_before",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 1
+    },
+    {
+     "step": "search",
+     "field": "text",
+     "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+     "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/worker.py (9 matches)\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 m",
+     "round": 1
+    },
+    {
+     "step": "tests_after",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 1
+    },
+    {
+     "step": "tests_after",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 1
+    },
+    {
+     "step": "tests_after",
+     "field": "reward",
+     "docker": "1.0",
+     "sandbox": "0.0",
+     "round": 1
+    },
+    {
+     "step": "diffstat",
+     "field": "text",
+     "docker": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+     "sandbox": " aiohttp/web_urldispatcher.py | 16 ++++++++++------\n 1 file changed, 10 insertions(+), 6 deletions(-)\n",
+     "round": 1
+    },
+    {
+     "step": "tests_before",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 2
+    },
+    {
+     "step": "tests_before",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 2
+    },
+    {
+     "step": "search",
+     "field": "text",
+     "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+     "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 m",
+     "round": 2
+    },
+    {
+     "step": "tests_after",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 2
+    },
+    {
+     "step": "tests_after",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 2
+    },
+    {
+     "step": "tests_after",
+     "field": "reward",
+     "docker": "1.0",
+     "sandbox": "0.0",
+     "round": 2
+    },
+    {
+     "step": "diffstat",
+     "field": "text",
+     "docker": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+     "sandbox": " aiohttp/web_urldispatcher.py | 16 ++++++++++------\n 1 file changed, 10 insertions(+), 6 deletions(-)\n",
+     "round": 2
+    },
+    {
+     "step": "tests_before",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 3
+    },
+    {
+     "step": "tests_before",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 3
+    },
+    {
+     "step": "search",
+     "field": "text",
+     "docker": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/abc.py (3 matches)\n./aiohttp/helpers.py (22 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/client.py (39 matches)\n./aiohttp/streams.py (56 matches)\n./aiohttp/test_utils.py (16 matches)\n./aiohttp/web_urldispatcher.py (57 matches)",
+     "sandbox": "Found 660 matches for \"def \" in /testbed/aiohttp:\n./aiohttp/web_urldispatcher.py (57 matches)\n./aiohttp/worker.py (9 matches)\n./aiohttp/server.py (16 matches)\n./aiohttp/client_reqrep.py (36 matches)\n./aiohttp/wsgi.py (9 matches)\n./aiohttp/websocket_client.py (12 matches)\n./aiohttp/websocket.py (11 m",
+     "round": 3
+    },
+    {
+     "step": "tests_after",
+     "field": "code",
+     "docker": "Error: Exit code 1",
+     "sandbox": "Error: Exit code 4",
+     "round": 3
+    },
+    {
+     "step": "tests_after",
+     "field": "tests",
+     "docker": "{'TestUrlDispatcher.test_add_invalid_path': 'PASSED', 'TestUrlDispatcher.test_add_route_invalid_method': 'PASSED', 'TestUrlDispatcher.test_add_route_not_started_with_slash': 'PASSED', 'TestUrlDispatcher.test_add_route_root': 'PASSED', 'TestUrlDispatcher.test_add_route_simple': 'PASSED', 'TestUrlDisp",
+     "sandbox": "{}",
+     "round": 3
+    },
+    {
+     "step": "tests_after",
+     "field": "reward",
+     "docker": "1.0",
+     "sandbox": "0.0",
+     "round": 3
+    },
+    {
+     "step": "diffstat",
+     "field": "text",
+     "docker": " Makefile                     |  8 ++++----\n aiohttp/client_reqrep.py     |  2 +-\n aiohttp/server.py            |  2 +-\n aiohttp/web_urldispatcher.py | 16 ++++++++++------\n aiohttp/worker.py            |  2 +-\n 5 files changed, 17 insertions(+), 13 deletions(-)\n",
+     "sandbox": " aiohttp/web_urldispatcher.py | 16 ++++++++++------\n 1 file changed, 10 insertions(+), 6 deletions(-)\n",
+     "round": 3
+    }
+   ]
+  }
+ },
+ "serve_mem_kB": [
+  {
+   "t": 0.0,
+   "Rss": 5284,
+   "Pss": 3001,
+   "Private_Dirty": 1460,
+   "Anonymous": 1456
+  },
+  {
+   "t": 5.0,
+   "Rss": 242576,
+   "Pss": 175785,
+   "Private_Dirty": 109732,
+   "Anonymous": 106328
+  },
+  {
+   "t": 10.0,
+   "Rss": 247348,
+   "Pss": 180205,
+   "Private_Dirty": 113800,
+   "Anonymous": 106824
+  },
+  {
+   "t": 15.0,
+   "Rss": 250928,
+   "Pss": 180353,
+   "Private_Dirty": 110516,
+   "Anonymous": 107084
+  },
+  {
+   "t": 20.0,
+   "Rss": 283464,
+   "Pss": 197417,
+   "Private_Dirty": 112108,
+   "Anonymous": 108528
+  },
+  {
+   "t": 25.0,
+   "Rss": 283592,
+   "Pss": 197449,
+   "Private_Dirty": 112044,
+   "Anonymous": 108592
+  },
+  {
+   "t": 30.1,
+   "Rss": 283600,
+   "Pss": 197481,
+   "Private_Dirty": 112100,
+   "Anonymous": 108632
+  },
+  {
+   "t": 35.1,
+   "Rss": 283856,
+   "Pss": 197637,
+   "Private_Dirty": 112156,
+   "Anonymous": 108676
+  },
+  {
+   "t": 40.1,
+   "Rss": 283928,
+   "Pss": 197665,
+   "Private_Dirty": 112140,
+   "Anonymous": 108736
+  },
+  {
+   "t": 45.1,
+   "Rss": 283928,
+   "Pss": 197685,
+   "Private_Dirty": 112180,
+   "Anonymous": 108772
+  },
+  {
+   "t": 50.1,
+   "Rss": 283948,
+   "Pss": 197709,
+   "Private_Dirty": 112208,
+   "Anonymous": 108808
+  },
+  {
+   "t": 55.1,
+   "Rss": 285100,
+   "Pss": 198309,
+   "Private_Dirty": 112256,
+   "Anonymous": 108852
+  },
+  {
+   "t": 60.1,
+   "Rss": 285100,
+   "Pss": 198313,
+   "Private_Dirty": 112264,
+   "Anonymous": 108860
+  },
+  {
+   "t": 65.1,
+   "Rss": 285116,
+   "Pss": 198329,
+   "Private_Dirty": 112280,
+   "Anonymous": 108880
+  },
+  {
+   "t": 70.1,
+   "Rss": 285116,
+   "Pss": 198337,
+   "Private_Dirty": 112296,
+   "Anonymous": 108900
+  }
+ ]
+}

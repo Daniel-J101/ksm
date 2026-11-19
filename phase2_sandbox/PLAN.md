@@ -51,6 +51,36 @@ the same commands run in the task's docker image.
   - Without this, every agent tool call that sleeps, polls or times out would
     have been inflated by seconds.
 
+- **W2 done.** Patches 0005 (run loop: tail-only marker scan, `HltPolicy`,
+  cancellable timer), 0006 (template ready marker, console log, configurable
+  Firecracker timeout), 0007 (persistent sandbox API).
+- **W3 done.** `agent/zbagent.c`: root copied into tmpfs (aiohttp's 1.3 GB in
+  10.8 s), `pivot_root`, disk detached, framed protocol. Bug found in testing and
+  fixed: the staged command was not NUL-terminated, so a shorter command
+  inherited the tail of the previous one.
+- **W4 done.** `20_build_r2e_template.py` runs **R2E-Gym's own** `RepoEnv` +
+  `add_commands` in docker, then exports that container (`10_image_to_rootfs.sh
+  container:<id>`). aiohttp#0 template: 1285 MB content, 3 GiB guest RAM, built
+  in 163 s.
+- **W5 done.** `zbsandbox.py`: `Sandbox` plus `ZerobootRuntime` (same command
+  wrapping and post-processing as R2E's `DockerRuntime.run`).
+- **W6 done — GATE PASS.** 16 sandboxes × 13.5 min, ≈ 560 tool calls, 0 diffs vs
+  docker (exit codes, per-test results, rewards 0→1, outputs). ≈ 53 MiB private per
+  sandbox at peak. Details in README → Results.
+- **Phase 2 complete (2026-11-19).**
+- **Measured costs** (debian test template, 16 sandboxes):
+  - create 16 sandboxes: 0.14 s; fork 3.4 ms + init 6 ms each;
+  - exec round trip: 5–25 ms;
+  - serial output ≈ 91 KB/s, input ≈ 40 KB/s (one VM exit per byte). Fine for
+    R2E-sized observations (aiohttp test log 8.5 KB).
+  - If Phase 3 traces show large outputs, the fix is `rep outsb` from the agent
+    (up to 4 KB per exit).
+- **Environment differences found (documented, accepted):**
+  - Directory listing order differs: tmpfs vs docker's overlayfs-on-ext4 give
+    different `readdir` order. The `search` tool finds the same matches but
+    lists files in a different order. The gate compares it order-insensitively.
+    Replay doesn't depend on observations.
+
 ## Decisions (agreed 2026-11-19)
 
 1. **Record traces in R2E-Gym's own docker runtime, replay in Zeroboot.** This
@@ -115,7 +145,7 @@ tick".
   - `PUT <path> <mode> <b64>`.
 - Responses are framed `ZB <id> OUT <b64>` … `ZB <id> EXIT <code>`.
 
-**W4. Template builder** (`phase2_sandbox/build_template.py <docker_image>`):
+**W4. Template builder** (`phase2_sandbox/20_build_r2e_template.py`, as built: runs R2E's own setup, then exports the container):
 - Pull the image and start a container (with network).
 - Replay R2E's `setup_env` steps, and copy R2E's tool scripts into place the
   same way `env.add_commands` does.

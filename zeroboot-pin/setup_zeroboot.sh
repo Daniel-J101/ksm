@@ -51,7 +51,9 @@ tree_after() {  # tree of pin + first $1 patches
     for ((i = 0; i < $1; i++)); do GIT_INDEX_FILE="$tmpidx" git apply --cached "${patches[$i]}"; done
     GIT_INDEX_FILE="$tmpidx" git write-tree
 }
-actual="$(GIT_INDEX_FILE="$tmpidx" git read-tree "$ZB_COMMIT" && GIT_INDEX_FILE="$tmpidx" git add -u . && GIT_INDEX_FILE="$tmpidx" git write-tree)"
+# working tree = tracked changes + new files under src/ (patches may add files there)
+actual="$(GIT_INDEX_FILE="$tmpidx" git read-tree "$ZB_COMMIT" && GIT_INDEX_FILE="$tmpidx" git add -u . \
+          && GIT_INDEX_FILE="$tmpidx" git add -A src && GIT_INDEX_FILE="$tmpidx" git write-tree)"
 have=-1
 for ((k = ${#patches[@]}; k >= 0; k--)); do
     if [ "$(tree_after $k)" = "$actual" ]; then have=$k; break; fi

@@ -1,0 +1,245 @@
+diff --git a/src/vmm/kvm.rs b/src/vmm/kvm.rs
+index ed39043..ceebafa 100644
+--- a/src/vmm/kvm.rs
++++ b/src/vmm/kvm.rs
+@@ -9,6 +9,45 @@ use super::serial::Serial;
+ 
+ extern "C" fn noop_signal_handler(_: libc::c_int) {}
+ 
++/// What an HLT exit with no pending serial input means (ksm patch 0005).
++#[derive(Clone, Copy)]
++pub enum HltPolicy {
++    /// Upstream behaviour: the guest is done; end the run.
++    EndRun,
++    /// Persistent sandboxes: the guest is just idle; keep running.
++    Continue,
++}
++
++/// One-shot SIGALRM to the calling thread after `dur`, cancelled on drop.
++struct TimerGuard(Option<std::sync::mpsc::Sender<()>>);
++
++impl TimerGuard {
++    fn arm(dur: Duration) -> Self {
++        unsafe {
++            let mut sa: libc::sigaction = std::mem::zeroed();
++            sa.sa_sigaction = noop_signal_handler as *const () as usize;
++            sa.sa_flags = 0; // no SA_RESTART, so KVM_RUN returns EINTR
++            libc::sigaction(libc::SIGALRM, &sa, std::ptr::null_mut());
++        }
++        let target = unsafe { libc::pthread_self() };
++        let (tx, rx) = std::sync::mpsc::channel::<()>();
++        std::thread::spawn(move || {
++            if let Err(std::sync::mpsc::RecvTimeoutError::Timeout) = rx.recv_timeout(dur) {
++                unsafe { libc::pthread_kill(target, libc::SIGALRM); }
++            }
++        });
++        TimerGuard(Some(tx))
++    }
++}
++
++impl Drop for TimerGuard {
++    fn drop(&mut self) {
++        // Wake the helper so it exits without signalling. (A run that ended by
++        // timeout has already been signalled; a late EINTR is handled.)
++        if let Some(tx) = self.0.take() { let _ = tx.send(()); }
++    }
++}
++
+ /// Guest kvmclock time (ns) at snapshot: the guest's pvclock record (GPA from
+ /// MSR_KVM_SYSTEM_TIME_NEW) extrapolated to the snapshot TSC (MSR IA32_TSC).
+ /// None if either is missing -- then behaviour is unchanged from upstream.
+@@ -212,6 +251,32 @@ impl ForkedVm {
+     }
+ 
+     pub fn run_until_marker_timeout(&mut self, marker: &str, max_exits: u64, timeout: Option<Duration>) -> Result<String> {
++        // ksm patch 0005: scan only the newly written tail for the marker
++        // (upstream re-scanned the whole output on every byte: O(n^2)).
++        let m = marker.as_bytes();
++        let mut scanned = 0usize;
++        self.run_until(max_exits, timeout, HltPolicy::EndRun, |out| {
++            let from = scanned.saturating_sub(m.len().saturating_sub(1));
++            scanned = out.len();
++            out[from..].windows(m.len()).any(|w| w == m)
++        })?;
++        Ok(String::from_utf8_lossy(&self.serial.output).to_string())
++    }
++
++    /// Drain and return everything the guest has written to the serial port.
++    pub fn take_output(&mut self) -> Vec<u8> {
++        std::mem::take(&mut self.serial.output)
++    }
++
++    /// Run the vCPU until `done(output)` returns true (checked after each
++    /// serial write), the guest shuts down, or `timeout` passes (-> Err
++    /// "Execution timed out"). `hlt` decides what an HLT exit with no pending
++    /// input means: upstream treats it as "guest finished" (EndRun);
++    /// persistent sandboxes keep running (Continue) because a guest that is
++    /// merely idle-waiting (child process, timer) must not end the request.
++    /// Returns Ok(true) if `done` fired, Ok(false) if the run ended otherwise.
++    pub fn run_until<F: FnMut(&[u8]) -> bool>(&mut self, max_exits: u64, timeout: Option<Duration>,
++                                               hlt: HltPolicy, mut done: F) -> Result<bool> {
+         if self.serial.has_pending_input() {
+             self.serial.set_ier_data_ready(true);
+             let _ = self.inject_serial_irq();
+@@ -219,138 +284,71 @@ impl ForkedVm {
+ 
+         let debug = std::env::var("ZEROBOOT_DEBUG").is_ok();
+         let deadline = timeout.map(|d| Instant::now() + d);
++        // KVM_RUN blocks in the kernel; the only way out is a signal (EINTR).
++        // ksm patch 0005: the timer is cancelled when this run returns, so a
++        // long-lived sandbox doesn't accumulate sleeping helper threads or
++        // receive stale SIGALRMs from earlier requests.
++        let _timer = timeout.map(TimerGuard::arm);
+ 
+-        // Set up a per-thread timer to interrupt KVM_RUN via signal.
+-        // KVM_RUN blocks in kernel mode; the only way to break out is a signal
+-        // that causes the ioctl to return EINTR.
+-        let _timer_guard = if let Some(dur) = timeout {
+-            // Install no-op SIGALRM handler (SA_RESTART=false so ioctl gets EINTR)
+-            unsafe {
+-                let mut sa: libc::sigaction = std::mem::zeroed();
+-                sa.sa_sigaction = noop_signal_handler as *const () as usize;
+-                sa.sa_flags = 0; // no SA_RESTART
+-                libc::sigaction(libc::SIGALRM, &sa, std::ptr::null_mut());
+-            }
+-            // Create a per-thread timer using CLOCK_THREAD_CPUTIME_ID won't work
+-            // across threads, so use a helper thread that sleeps then signals us.
+-            let thread_id = unsafe { libc::pthread_self() };
+-            let handle = std::thread::spawn(move || {
+-                std::thread::sleep(dur);
+-                unsafe { libc::pthread_kill(thread_id, libc::SIGALRM); }
+-            });
+-            Some(handle)
+-        } else {
+-            None
+-        };
+-
+-        let mut exit_count: u64 = 0;
+-        let mut io_in_count: u64 = 0;
+-        let mut io_out_count: u64 = 0;
+         let mut hlt_count: u64 = 0;
+-        let mut _last_io_in_offset: u16 = 0;
+-        let mut _last_io_in_val: u8 = 0;
+-
+-        for _ in 0..max_exits {
++        for exit_count in 0..max_exits {
+             if let Some(dl) = deadline {
+                 if Instant::now() >= dl {
+                     bail!("Execution timed out");
+                 }
+             }
+-            exit_count += 1;
+             match self.vcpu_fd.run() {
+                 Ok(exit) => match exit {
+                     VcpuExit::IoOut(port, data) => {
+                         if port >= COM1_PORT && port <= COM1_PORT_END {
+-                            io_out_count += 1;
+                             let offset = port - COM1_PORT;
+-                            let _thri_before = self.serial.thri_enabled();
+                             for &b in data { self.serial.write(offset, b); }
+                             // Level-triggered THRI: keep IRQ line asserted while
+                             // THRI is enabled and de-assert when disabled. This
+                             // matches real UART behavior where THRE interrupt
+                             // stays pending until acknowledged by disabling THRI.
+                             if offset == 1 {
+-                                if self.serial.thri_enabled() {
+-                                    let _ = self.vm_fd.set_irq_line(COM1_IRQ, true);
+-                                } else {
+-                                    let _ = self.vm_fd.set_irq_line(COM1_IRQ, false);
+-                                }
++                                let _ = self.vm_fd.set_irq_line(COM1_IRQ, self.serial.thri_enabled());
+                             }
+-                            if debug && offset == 0 && exit_count < 5000 {
+-                                let ch = data[0];
+-                                if ch >= 0x20 && ch < 0x7f {
+-                                    eprintln!("  [{}] IoOut chr='{}' out_len={}", exit_count, ch as char, self.serial.output.len());
+-                                } else {
+-                                    eprintln!("  [{}] IoOut byte=0x{:02x} out_len={}", exit_count, ch, self.serial.output.len());
+-                                }
+-                            } else if debug && exit_count < 5000 {
+-                                eprintln!("  [{}] IoOut reg={} val=0x{:02x}", exit_count, offset, data[0]);
+-                            }
+-                            if String::from_utf8_lossy(&self.serial.output).contains(marker) {
+-                                if debug { eprintln!("  MARKER FOUND at exit {}", exit_count); }
+-                                return Ok(String::from_utf8_lossy(&self.serial.output).to_string());
++                            if offset == 0 && done(&self.serial.output) {
++                                if debug { eprintln!("  run_until: done at exit {}", exit_count); }
++                                return Ok(true);
+                             }
+                         }
+                     }
+                     VcpuExit::IoIn(port, data) => {
+-                        if port >= COM1_PORT && port <= COM1_PORT_END {
+-                            let offset = port - COM1_PORT;
+-                            data[0] = self.serial.read(offset);
+-                            io_in_count += 1;
+-                            _last_io_in_offset = offset;
+-                            _last_io_in_val = data[0];
+-                            if debug && exit_count < 5000 {
+-                                if offset == 0 {
+-                                    let ch = data[0];
+-                                    if ch >= 0x20 && ch < 0x7f {
+-                                        eprintln!("  [{}] IoIn  RX chr='{}' pending={}", exit_count, ch as char, self.serial.input_len());
+-                                    } else {
+-                                        eprintln!("  [{}] IoIn  RX byte=0x{:02x} pending={}", exit_count, ch, self.serial.input_len());
+-                                    }
+-                                } else if offset == 2 {
+-                                    eprintln!("  [{}] IoIn  IIR=0x{:02x}", exit_count, data[0]);
+-                                } else if offset == 5 {
+-                                    eprintln!("  [{}] IoIn  LSR=0x{:02x}", exit_count, data[0]);
+-                                }
+-                            }
++                        data[0] = if port >= COM1_PORT && port <= COM1_PORT_END {
++                            self.serial.read(port - COM1_PORT)
+                         } else {
+-                            data[0] = 0xff;
+-                        }
++                            0xff
++                        };
+                     }
+                     VcpuExit::Hlt => {
+                         hlt_count += 1;
+-                        if debug { eprintln!("  [{}] HLT pending={}", exit_count, self.serial.has_pending_input()); }
+                         if self.serial.has_pending_input() {
+                             let _ = self.inject_serial_irq();
++                        } else if let HltPolicy::EndRun = hlt {
++                            if debug { eprintln!("  run_until: HLT with no input -> end (exits={} hlt={})", exit_count, hlt_count); }
++                            return Ok(false);
+                         } else {
+-                            if debug { eprintln!("  DONE: exits={} io_in={} io_out={} hlt={}", exit_count, io_in_count, io_out_count, hlt_count); }
+-                            return Ok(String::from_utf8_lossy(&self.serial.output).to_string());
++                            // Idle guest with in-kernel LAPIC normally never exits on HLT;
++                            // if it does, yield briefly instead of spinning.
++                            std::thread::sleep(Duration::from_micros(200));
+                         }
+                     }
+-                    VcpuExit::Shutdown => {
+-                        return Ok(String::from_utf8_lossy(&self.serial.output).to_string());
+-                    }
++                    VcpuExit::Shutdown => return Ok(false),
+                     VcpuExit::MmioRead(_, data) => { for b in data.iter_mut() { *b = 0xff; } }
+                     VcpuExit::MmioWrite(_, _) => {}
+                     VcpuExit::InternalError => bail!("KVM internal error"),
+                     _ => {}
+                 },
+                 Err(e) => {
+-                    if e.errno() == libc::EAGAIN { continue; }
+-                    if e.errno() == libc::EINTR {
+-                        // Signal interrupted KVM_RUN — check if we've timed out
+-                        if let Some(dl) = deadline {
+-                            if Instant::now() >= dl {
+-                                bail!("Execution timed out");
+-                            }
+-                        }
+-                        continue;
+-                    }
++                    if e.errno() == libc::EAGAIN || e.errno() == libc::EINTR { continue; }
+                     bail!("KVM run: {} (errno {})", e, e.errno());
+                 }
+             }
+         }
+-        Ok(String::from_utf8_lossy(&self.serial.output).to_string())
++        Ok(false)
+     }
+ }
+ 

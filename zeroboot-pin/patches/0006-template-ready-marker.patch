@@ -1,0 +1,141 @@
+diff --git a/src/vmm/firecracker.rs b/src/vmm/firecracker.rs
+index 26e3215..3691c32 100644
+--- a/src/vmm/firecracker.rs
++++ b/src/vmm/firecracker.rs
+@@ -6,12 +6,65 @@ use std::path::Path;
+ use std::process::{Child, Command, Stdio};
+ use std::time::{Duration, Instant};
+ 
+-const FC_SOCKET_TIMEOUT: Duration = Duration::from_secs(120);
++/// Firecracker API timeout (ksm patch 0006: ZEROBOOT_FC_TIMEOUT_SECS, default
++/// 120). A Full snapshot writes the mem file at ~80 MB/s, so multi-GB templates
++/// need more than the default.
++fn fc_socket_timeout() -> Duration {
++    let secs = std::env::var("ZEROBOOT_FC_TIMEOUT_SECS").ok()
++        .and_then(|v| v.parse().ok()).unwrap_or(120);
++    Duration::from_secs(secs)
++}
++
++/// Guest console watcher (ksm patch 0006): Firecracker's stdout is the guest
++/// serial console. Tee it to <workdir>/console.log and record whether the
++/// ready marker has appeared.
++struct Console {
++    seen: std::sync::Arc<(std::sync::Mutex<bool>, std::sync::Condvar)>,
++    log_path: String,
++}
++
++impl Console {
++    fn spawn(mut out: std::process::ChildStdout, log_path: String, marker: Option<String>) -> Self {
++        let seen = std::sync::Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new()));
++        let seen2 = seen.clone();
++        let path = log_path.clone();
++        std::thread::spawn(move || {
++            let mut log = std::fs::File::create(&path).ok();
++            let mut tail: Vec<u8> = Vec::new();
++            let mut buf = [0u8; 8192];
++            while let Ok(n) = out.read(&mut buf) {
++                if n == 0 { break; }
++                if let Some(f) = log.as_mut() { let _ = f.write_all(&buf[..n]); }
++                if let Some(m) = &marker {
++                    tail.extend_from_slice(&buf[..n]);
++                    if tail.windows(m.len()).any(|w| w == m.as_bytes()) {
++                        let (lock, cv) = &*seen2;
++                        *lock.lock().unwrap() = true;
++                        cv.notify_all();
++                        tail.clear();
++                    } else if tail.len() > m.len() {
++                        tail.drain(..tail.len() - m.len());
++                    }
++                }
++            }
++        });
++        Console { seen, log_path }
++    }
++
++    /// Wait up to `dur` for the marker. Returns whether it was seen.
++    fn wait(&self, dur: Duration) -> bool {
++        let (lock, cv) = &*self.seen;
++        let guard = lock.lock().unwrap();
++        let (guard, _) = cv.wait_timeout_while(guard, dur, |seen| !*seen).unwrap();
++        *guard
++    }
++}
+ 
+ pub struct FirecrackerVm {
+     process: Child,
+     socket_path: String,
+     snapshot_dir: String,
++    console: Option<Console>,
+ }
+ 
+ #[derive(Serialize)]
+@@ -64,10 +117,10 @@ impl FirecrackerVm {
+ 
+         // Start Firecracker
+         eprintln!("Starting Firecracker...");
+-        let process = Command::new("firecracker")
++        let mut process = Command::new("firecracker")
+             .args(["--api-sock", &socket_path])
+             .stdin(Stdio::null())
+-            .stdout(Stdio::null())
++            .stdout(Stdio::piped())
+             .stderr(Stdio::piped())
+             .spawn()
+             .context("Failed to start Firecracker")?;
+@@ -82,7 +135,10 @@ impl FirecrackerVm {
+         }
+         std::thread::sleep(Duration::from_millis(50));
+ 
+-        let vm = Self { process, socket_path, snapshot_dir };
++        let marker = std::env::var("ZEROBOOT_READY_MARKER").ok().filter(|m| !m.is_empty());
++        let console = process.stdout.take().map(|out|
++            Console::spawn(out, format!("{}/console.log", work_dir), marker));
++        let vm = Self { process, socket_path, snapshot_dir, console };
+ 
+         // Configure machine
+         vm.api_put("/machine-config", &MachineConfig {
+@@ -165,8 +221,8 @@ impl FirecrackerVm {
+ 
+         let mut stream = UnixStream::connect(&self.socket_path)
+             .with_context(|| format!("Connect to Firecracker socket at {}", self.socket_path))?;
+-        stream.set_read_timeout(Some(FC_SOCKET_TIMEOUT))?;
+-        stream.set_write_timeout(Some(FC_SOCKET_TIMEOUT))?;
++        stream.set_read_timeout(Some(fc_socket_timeout()))?;
++        stream.set_write_timeout(Some(fc_socket_timeout()))?;
+ 
+         stream.write_all(request.as_bytes())?;
+         stream.flush()?;
+@@ -207,9 +263,30 @@ pub fn create_template_snapshot(
+ ) -> Result<(String, String, u32)> {
+     let mut vm = FirecrackerVm::boot(kernel_path, rootfs_path, work_dir, mem_mib, init_path)?;
+ 
+-    // Wait for the guest to boot and become ready
+-    eprintln!("Waiting {}s for guest to boot...", wait_secs);
+-    std::thread::sleep(Duration::from_secs(wait_secs));
++    // Wait for the guest to boot and become ready.
++    // ksm patch 0006: with ZEROBOOT_READY_MARKER set, snapshot as soon as the
++    // guest prints it on the console (wait_secs = upper bound); else upstream's
++    // fixed sleep.
++    match std::env::var("ZEROBOOT_READY_MARKER").ok().filter(|m| !m.is_empty()) {
++        Some(marker) => {
++            eprintln!("Waiting up to {}s for guest to print {:?}...", wait_secs, marker);
++            let t0 = Instant::now();
++            let ok = vm.console.as_ref().map_or(false, |c| c.wait(Duration::from_secs(wait_secs)));
++            if !ok {
++                let log = vm.console.as_ref().map(|c| c.log_path.clone()).unwrap_or_default();
++                let tail = std::fs::read_to_string(&log).unwrap_or_default();
++                let tail: String = tail.chars().rev().take(2000).collect::<Vec<_>>().into_iter().rev().collect();
++                bail!("guest never printed {:?} within {}s; console tail ({}):\n{}", marker, wait_secs, log, tail);
++            }
++            eprintln!("Guest ready after {:.1}s", t0.elapsed().as_secs_f64());
++            // Let the guest agent block in its serial read() before pausing.
++            std::thread::sleep(Duration::from_millis(300));
++        }
++        None => {
++            eprintln!("Waiting {}s for guest to boot...", wait_secs);
++            std::thread::sleep(Duration::from_secs(wait_secs));
++        }
++    }
+ 
+     // Take snapshot
+     let (state_path, mem_path) = vm.snapshot()?;

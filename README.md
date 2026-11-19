@@ -28,7 +28,7 @@ The Rust build takes ~20 s and the template ~10 s; most of the time is apt and t
 | `zeroboot-pin/` | Pinned upstream Zeroboot commit + our patches + setup script. See its [README](zeroboot-pin/README.md). |
 | `phase1_zeroboot_cow/` | Phase 1 + 1b: Zeroboot running, CoW sharing measured, KSM feasibility gate. See its [README](phase1_zeroboot_cow/README.md). |
 | `tools/ksm_ctl.sh` | Put KSM in a known, recorded state (`status` / `off` / `on`, knobs pinned via env). Every experiment uses it. |
-| `phase2_sandbox/` | Phase 2: persistent, code-running sandboxes. Plan + progress in [`PLAN.md`](phase2_sandbox/PLAN.md). |
+| `phase2_sandbox/` | Phase 2: persistent, code-running sandboxes from R2E-Gym task templates. How to run: [`README.md`](phase2_sandbox/README.md); design and progress: [`PLAN.md`](phase2_sandbox/PLAN.md). |
 | `tools/setup_data_disk.sh` | Format/mount an empty data disk at `/mnt/data` (refuses non-empty disks). |
 | `ROADMAP.md` | Phases from here to the headline result (KSM saving for N concurrent agents). |
 
@@ -45,7 +45,7 @@ changes the system. It is safe to re-run.
 | rustup + Rust **1.100.0** (as your user) | `~/.cargo`, `~/.rustup` | pinned toolchain from `zeroboot-pin/UPSTREAM` |
 | zeroboot clone @ pinned commit + `zeroboot-pin/patches/*` | `$ZB_DIR` (`~/zeroboot`) | the binary every phase uses |
 | guest kernel `vmlinux-fc` (Firecracker CI 6.1.128, sha256-checked) | `$ZB_DIR/guest/` | gitignored upstream, so it has to be downloaded |
-| **Phase 2** (`phase2_sandbox/00_provision.sh`): format + mount an **empty** disk (default `/dev/sdb`, refuses non-empty) as ext4 `LABEL=ksmdata` at `/mnt/data`, fstab `nofail` | `/mnt/data`, `/etc/fstab` | docker images + in-RAM templates need far more than `/`'s 64 GB |
+| **Phase 2** (`phase2_sandbox/00_provision.sh`): format + mount an **empty** disk (default `/dev/sdb`, refuses non-empty) as ext4 `LABEL=ksmdata` at `/mnt/data` (`docker/ templates/ traces/ work/ hf/`), fstab `nofail` | `/mnt/data`, `/etc/fstab` | docker images + in-RAM templates need far more than `/`'s 64 GB |
 | docker.io + `python3-venv`; `/etc/docker/daemon.json` `data-root=/mnt/data/docker`; `$SUDO_USER` added to group `docker` | system | build templates from R2E-Gym images; record traces (Phase 3) |
 | R2E-Gym @ `0d94c4e` + venv (`uv 0.8.4`, `uv sync --frozen`) | `/mnt/data/r2e/R2E-Gym` | template setup steps + trace recording |
 
