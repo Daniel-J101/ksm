@@ -239,10 +239,6 @@ python3 26_cow_mmap_demo.py --n 1000 --no-read     # 1000 mappings ~ free (Zerob
 - **`40_cow_probe.py`** needs root to read the serve process's `smaps_rollup`;
   pick `--spins` high enough to outlast `--hold` (default 2e10 ≈ several s on a Xeon).
 
-## Next phases (not built)
+## Later phases
 
-- **Phase 2 — trace record:** a Python-capable agent + DeepSeek, recording tool
-  actions + `think_time_ms_before` (§5.3).
-- **Phase 3 — replay + KSM baseline:** deterministic replay, `M(t)` 1/s, KSM dedup
-  (builds on `../../numa_ksm_bench/agentzip_ksm_bench/`).
-- **Phase 4 — AgentZip codecs:** template-delta + cohort-dictionary + RLE.
+Built: see `../ROADMAP.md` and the root `README.md` (Phases 2–4: sandboxes, traces, replay + KSM).

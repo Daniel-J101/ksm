@@ -185,5 +185,5 @@ tick".
 
 ## Needs input later
 
-- (Phase 3) a DeepSeek API key, and which model id counts as
-  "DeepSeek-V4".
+- ~~(Phase 3) a DeepSeek API key and a model id~~ Resolved: key in
+  `~/.config/ksm/deepseek.env`, model `deepseek-flash` (see `phase3_traces/README.md`).

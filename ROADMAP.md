@@ -157,3 +157,7 @@ Pilot done end to end (Phases 1–4). Next, in any order:
 (a) KSM scan-rate sensitivity on the pilot (free);
 (b) §6.5-style similarity analysis: how much of the private memory is near-duplicate, i.e. what KSM can't merge (free);
 (c) full trace collection, 1 task × 10 repos (~$3–15 DeepSeek), then the Phase 4 matrix per repo.
+(d) NUMA: sandboxes spread over both sockets (one serve per node, cohort split
+    8+8) — NoComp vs KSM merge_across_nodes=1 (remote reads of merged pages) vs =0
+    (per-node copies, less saving); optionally pin ksmd. The pilot pinned everything
+    to node 0, i.e. KSM's best case for latency (free).

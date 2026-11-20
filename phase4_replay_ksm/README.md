@@ -32,6 +32,20 @@ sudo -E python3 replay.py --template-dir $T --cohort ../traces/aiohttp/f0d74880d
     `merge_across_nodes=1`, `use_zero_pages=0`). This aggressive scan rate gives
     roughly an upper bound on what KSM can find.
   - Runs are interleaved NoComp/KSM within each repetition.
+- **What KSM scans** (verified 2026-11-19 via `/proc/<serve>/smaps` VmFlags `mg`):
+  - Only each sandbox's **guest-RAM mapping**: a `MAP_PRIVATE` view of the template
+    memfd, guest-RAM sized (3 GiB here), marked by patch 0003. Two sandboxes → exactly
+    2 of serve's 233 VMAs. Nothing else in serve is mergeable: no heap, stacks or
+    libraries, and no process-wide `PR_SET_MEMORY_MERGE`.
+  - Firecracker isn't running at all: it's only used once, to boot and snapshot the
+    template.
+  - Within those mappings KSM can only merge **anonymous** pages, i.e. pages the
+    sandbox wrote (CoW copies). Pages still served from the template memfd are shmem
+    pages, already shared by all sandboxes and not KSM candidates.
+  - Candidates are therefore all private guest memory: guest kernel data, process
+    heaps, page cache, files written into the tmpfs root, and pages the guest freed
+    (still dirty on the host).
+  - ksmd still walks the page tables of the whole 3 GiB per sandbox each pass.
 - **Metric** (paper §5.4, without a compression pool): sandbox-owned physical memory
   `M(t) = (serve Anonymous − its value before any sandbox) − pages_sharing × 4 KiB`.
   - `Anonymous` = the forks' copy-on-write private pages.
@@ -60,13 +74,32 @@ Reading it:
   guest RAM but owns only ~40–60 MiB privately. KSM then removes another ~10% of
   that for 16 sibling sandboxes and ~3.5% for 4 GAF candidates. More, and more
   similar, siblings give KSM more byte-identical private pages to merge.
-- **The cost is CPU, not latency:** ksmd used ~45 s of CPU per ~80 s run (about
-  half a core, all the time) at this scan rate. Wall-time slowdown is ≈ 1%.
+- **Cost:**
+  - **CPU.** ksmd used ~45 s of CPU per ~80 s run, about half a core the whole
+    time. At this scan rate (10 000 pages / 20 ms = 100× the kernel default, 1000×
+    this image's boot setting) it re-scanned the whole mergeable set ~460 times per
+    Rollout run.
+  - **Tool latency.** Median command time rose 134 → 157 ms (+17%) for Rollout
+    and 128 → 140 ms (+9%) for GAF; summed command time went 127 → 141 s. Merged
+    pages are write-protected (the next write takes a copy-on-write fault), and
+    ksmd competes for memory bandwidth and page-table locks.
+  - **End-to-end wall time** rose only ≈ 1%. Agents spend most of a trajectory
+    idle in LLM think time (median 1.6 s vs ~0.15 s per command), and the node had
+    spare cores, so ksmd never competed with vCPUs for CPU.
 - **For comparison with the paper** (not like for like: the paper only reports
   KSM+zswap and zswap): Rollout 51.24% vs 48.66% with zswap alone; GAF 21.25% vs
   4.86%. Our KSM-alone numbers are consistent with its claim that exact-match
   dedup has little left after CoW.
 
+**NUMA (verified 2026-11-19):** serve, i.e. every sandbox, was pinned to node 0
+(`numactl --cpunodebind=0 --membind=0`, `NUMA_NODE=0`): all vCPU threads ran on
+node-0 CPUs, 99.7% of the process's pages were on node 0, so every KSM-merged page
+was node-local. ksmd itself is not pinned (it was seen on a node-1 CPU, scanning
+node-0 memory remotely). So these latencies are the **best case for KSM**: no
+sandbox ever read a merged page across the socket interconnect. A deployment
+spanning both sockets faces `merge_across_nodes=1` (remote reads of merged pages)
+vs `=0` (local, but one copy per node, so less saving). That's a planned experiment.
+
 Caveats: one small task (aiohttp, short trajectories, ~80 s); KSM at an aggressive
-scan rate; a single node. Next: scan-rate sensitivity, §6.5-style similarity
+scan rate; a single NUMA node. Next: scan-rate sensitivity, §6.5-style similarity
 analysis (how much of what KSM misses is near-duplicate), and the 10-repo collection.
